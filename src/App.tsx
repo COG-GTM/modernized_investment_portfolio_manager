@@ -1,26 +1,16 @@
-import SampleComponent from './components/SampleComponent'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { MainMenu, PortfolioInquiry, TransactionHistory } from './pages';
+import { ROUTES } from './types/routes';
 
 function App() {
   return (
-    <div className="p-8 font-sans min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto space-y-8">
-        <header className="text-center space-y-4">
-          <h1 className="text-4xl font-bold text-primary">
-            Modernized Investment Portfolio Manager
-          </h1>
-          <p className="text-lg text-muted-foreground">
-            Welcome to the modernized version of the COBOL Legacy Benchmark Suite (CLBS).
-          </p>
-          <p className="text-lg text-muted-foreground">
-            This React TypeScript application is ready for development.
-          </p>
-        </header>
-        
-        <main>
-          <SampleComponent />
-        </main>
-      </div>
-    </div>
+    <Router>
+      <Routes>
+        <Route path={ROUTES.MAIN_MENU} element={<MainMenu />} />
+        <Route path={ROUTES.PORTFOLIO_INQUIRY} element={<PortfolioInquiry />} />
+        <Route path={ROUTES.TRANSACTION_HISTORY} element={<TransactionHistory />} />
+      </Routes>
+    </Router>
   )
 }
 
