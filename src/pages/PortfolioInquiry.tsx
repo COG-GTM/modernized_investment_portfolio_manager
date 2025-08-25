@@ -1,50 +1,76 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ROUTES } from '../types/routes';
+import { Container, PageHeader, Card, Button, SkeletonLoader } from '../components';
 
 export default function PortfolioInquiry() {
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
-    <div className="p-8 font-sans min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto space-y-8">
-        <header className="text-center space-y-4">
-          <h1 className="text-4xl font-bold text-primary">
-            Portfolio Inquiry
-          </h1>
-          <p className="text-lg text-muted-foreground">
-            View and analyze your investment portfolio
-          </p>
-        </header>
-        
-        <main className="space-y-6">
-          <div className="bg-card border border-border rounded-lg p-6">
-            <h2 className="text-2xl font-semibold mb-4">Portfolio Overview</h2>
-            <p className="text-muted-foreground mb-4">
-              This page will display detailed portfolio information including holdings, 
-              performance metrics, and asset allocation charts.
-            </p>
-            <div className="text-sm text-muted-foreground">
-              <p>• Current portfolio value</p>
-              <p>• Asset allocation breakdown</p>
-              <p>• Performance analytics</p>
-              <p>• Individual holding details</p>
-            </div>
-          </div>
+    <div className="min-h-screen bg-background py-8">
+      <Container size="md">
+        <div className="space-y-8">
+          <PageHeader 
+            title="Portfolio Inquiry"
+            subtitle="View and analyze your investment portfolio"
+          />
           
-          <div className="flex gap-4 justify-center">
-            <Link 
-              to={ROUTES.MAIN_MENU}
-              className="px-6 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 transition-colors"
-            >
-              Back to Main Menu
-            </Link>
-            <Link 
-              to={ROUTES.TRANSACTION_HISTORY}
-              className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-            >
-              View Transaction History
-            </Link>
-          </div>
-        </main>
-      </div>
+          <main className="space-y-6 animate-slide-up">
+            <Card hover className="animate-fade-in">
+              <h2 className="text-2xl font-semibold mb-4">Portfolio Overview</h2>
+              {loading ? (
+                <div className="space-y-4">
+                  <SkeletonLoader lines={3} />
+                  <SkeletonLoader lines={1} height="h-2" />
+                </div>
+              ) : (
+                <>
+                  <p className="text-muted-foreground mb-4">
+                    This page will display detailed portfolio information including holdings, 
+                    performance metrics, and asset allocation charts.
+                  </p>
+                  <div className="text-sm text-muted-foreground space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-primary rounded-full"></div>
+                      <span>Current portfolio value</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-primary rounded-full"></div>
+                      <span>Asset allocation breakdown</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-primary rounded-full"></div>
+                      <span>Performance analytics</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-primary rounded-full"></div>
+                      <span>Individual holding details</span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </Card>
+            
+            <div className="flex gap-4 justify-center animate-fade-in" style={{ animationDelay: '200ms' }}>
+              <Link to={ROUTES.MAIN_MENU}>
+                <Button variant="secondary">
+                  Back to Main Menu
+                </Button>
+              </Link>
+              <Link to={ROUTES.TRANSACTION_HISTORY}>
+                <Button variant="primary">
+                  View Transaction History
+                </Button>
+              </Link>
+            </div>
+          </main>
+        </div>
+      </Container>
     </div>
   );
 }

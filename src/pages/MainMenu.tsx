@@ -5,6 +5,7 @@ import { ConfirmationDialogState } from '../types/navigation';
 import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation';
 import MenuOption from '../components/MenuOption';
 import ConfirmationDialog from '../components/dialogs/ConfirmationDialog';
+import { Container, PageHeader } from '../components';
 
 export default function MainMenu() {
   const navigate = useNavigate();
@@ -79,51 +80,55 @@ export default function MainMenu() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
-        <header className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-4" style={{ color: '#06402B' }}>
-            Investment Portfolio Manager
-          </h1>
-          <p className="text-lg text-gray-600">
-            Main Menu - Use arrow keys to navigate, Enter to select, or keyboard shortcuts
-          </p>
-        </header>
-        
-        <main 
-          ref={containerRef}
-          className="max-w-2xl mx-auto"
-          role="menu"
-          aria-label="Main navigation menu"
-        >
-          <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
-            {MENU_OPTIONS.map((option, index) => (
-              <MenuOption
-                key={option.id}
-                option={option}
-                index={index}
-                isSelected={menuState.selectedOption === option.id}
-                isKeyboardSelected={isKeyboardNavigation && selectedIndex === index}
-                onSelect={handleOptionSelect}
-                onKeyPress={handleOptionKeyPress}
-              />
-            ))}
-          </div>
+    <div className="min-h-screen bg-background py-8">
+      <Container size="md">
+        <div className="space-y-12">
+          <PageHeader 
+            title="Investment Portfolio Manager"
+            subtitle="Main Menu - Use arrow keys to navigate, Enter to select, or keyboard shortcuts"
+            className="mb-12"
+          />
           
-          <div className="mt-8 text-center">
-            <p className="text-sm text-gray-500">
-              Navigation: Use <kbd className="px-2 py-1 bg-gray-200 rounded text-xs">↑↓</kbd> arrow keys or 
-              shortcuts <kbd className="px-2 py-1 bg-gray-200 rounded text-xs">1</kbd>, 
-              <kbd className="px-2 py-1 bg-gray-200 rounded text-xs">2</kbd>, 
-              <kbd className="px-2 py-1 bg-gray-200 rounded text-xs">3</kbd>. 
-              Press <kbd className="px-2 py-1 bg-gray-200 rounded text-xs">Enter</kbd> to select, 
-              <kbd className="px-2 py-1 bg-gray-200 rounded text-xs">Esc</kbd> to reset.
-            </p>
-          </div>
-        </main>
+          <main 
+            ref={containerRef}
+            className="mx-auto"
+            role="menu"
+            aria-label="Main navigation menu"
+          >
+            <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3 animate-slide-up">
+              {MENU_OPTIONS.map((option, index) => (
+                <div 
+                  key={option.id}
+                  className="animate-fade-in"
+                  style={{ animationDelay: `${index * 100}ms` }}
+                >
+                  <MenuOption
+                    option={option}
+                    index={index}
+                    isSelected={menuState.selectedOption === option.id}
+                    isKeyboardSelected={isKeyboardNavigation && selectedIndex === index}
+                    onSelect={handleOptionSelect}
+                    onKeyPress={handleOptionKeyPress}
+                  />
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-8 text-center animate-fade-in" style={{ animationDelay: '400ms' }}>
+              <p className="text-sm text-muted-foreground">
+                Navigation: Use <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">↑↓</kbd> arrow keys or 
+                shortcuts <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">1</kbd>, 
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">2</kbd>, 
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">3</kbd>. 
+                Press <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">Enter</kbd> to select, 
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">Esc</kbd> to reset.
+              </p>
+            </div>
+          </main>
+        </div>
+      </Container>
 
       <ConfirmationDialog {...confirmationDialog} />
-      </div>
     </div>
   );
 }
