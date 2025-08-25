@@ -7,6 +7,8 @@ export { default as Button } from './Button';
 export { default as Container } from './Container';
 export { default as PageHeader } from './PageHeader';
 export { AccountInput } from './AccountInput';
+export { default as PositionCard } from './PositionCard';
+export { default as PortfolioSummary } from './PortfolioSummary';
 
 export { Button as UIButton } from './ui/button';
 export { Input } from './ui/input';

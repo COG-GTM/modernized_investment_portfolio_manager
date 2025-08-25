@@ -3,14 +3,14 @@ import { Link } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ROUTES } from '../types/routes';
-import { Container, PageHeader, Card, Button } from '../components';
+import { Container, PageHeader, Card, Button, PositionCard, PortfolioSummary } from '../components';
 import { AccountInput } from '../components/AccountInput';
-import { accountFormSchema, type AccountFormData, type PortfolioSummary } from '../types/account';
+import { accountFormSchema, type AccountFormData, type PortfolioSummary as PortfolioSummaryType } from '../types/account';
 import { generateMockPortfolio } from '../utils/mockData';
 
 export default function PortfolioInquiry() {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [portfolioData, setPortfolioData] = useState<PortfolioSummary | null>(null);
+  const [portfolioData, setPortfolioData] = useState<PortfolioSummaryType | null>(null);
 
   const methods = useForm<AccountFormData>({
     resolver: zodResolver(accountFormSchema),
@@ -51,74 +51,62 @@ export default function PortfolioInquiry() {
             />
             
             <main className="space-y-6 animate-slide-up">
-              <Card hover className="animate-fade-in">
-                <div className="space-y-6">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h2 className="text-2xl font-semibold">Portfolio Summary</h2>
-                      <p className="text-sm text-muted-foreground">
-                        Last updated: {portfolioData.lastUpdated}
-                      </p>
-                    </div>
-                    <Button onClick={resetForm} variant="outline">
-                      New Search
-                    </Button>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-primary/5 rounded-lg p-4">
-                      <p className="text-sm text-muted-foreground">Total Value</p>
-                      <p className="text-2xl font-bold">
-                        ${portfolioData.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                      </p>
-                    </div>
-                    <div className="bg-green-50 rounded-lg p-4">
-                      <p className="text-sm text-muted-foreground">Total Gain/Loss</p>
-                      <p className={`text-2xl font-bold ${portfolioData.totalGainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        ${portfolioData.totalGainLoss.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                      </p>
-                    </div>
-                    <div className="bg-blue-50 rounded-lg p-4">
-                      <p className="text-sm text-muted-foreground">Gain/Loss %</p>
-                      <p className={`text-2xl font-bold ${portfolioData.totalGainLossPercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {portfolioData.totalGainLossPercent.toFixed(2)}%
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </Card>
+              <PortfolioSummary 
+                portfolio={{
+                  portfolioId: `PF-${portfolioData.accountNumber}`,
+                  accountNumber: portfolioData.accountNumber,
+                  totalValue: portfolioData.totalValue,
+                  totalCostBasis: portfolioData.totalValue - portfolioData.totalGainLoss,
+                  totalGainLoss: portfolioData.totalGainLoss,
+                  totalGainLossPercent: portfolioData.totalGainLossPercent,
+                  currency: 'USD',
+                  positions: portfolioData.holdings.map((holding: any) => ({
+                    portfolioId: `PF-${portfolioData.accountNumber}`,
+                    investmentId: `INV-${holding.symbol}-001`,
+                    symbol: holding.symbol,
+                    name: holding.name,
+                    quantity: holding.shares,
+                    costBasis: holding.marketValue - holding.gainLoss,
+                    currentPrice: holding.currentPrice,
+                    marketValue: holding.marketValue,
+                    currency: 'USD',
+                    status: 'ACTIVE' as const,
+                    gainLoss: holding.gainLoss,
+                    gainLossPercent: holding.gainLossPercent,
+                    lastUpdated: portfolioData.lastUpdated,
+                  })),
+                  lastUpdated: portfolioData.lastUpdated,
+                }}
+                onNewSearch={resetForm}
+              />
 
-              <Card className="animate-fade-in" style={{ animationDelay: '100ms' }}>
-                <h3 className="text-xl font-semibold mb-4">Holdings</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-2">Symbol</th>
-                        <th className="text-left py-2">Name</th>
-                        <th className="text-right py-2">Shares</th>
-                        <th className="text-right py-2">Price</th>
-                        <th className="text-right py-2">Market Value</th>
-                        <th className="text-right py-2">Gain/Loss</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {portfolioData.holdings.map((holding) => (
-                        <tr key={holding.symbol} className="border-b">
-                          <td className="py-3 font-medium">{holding.symbol}</td>
-                          <td className="py-3 text-muted-foreground">{holding.name}</td>
-                          <td className="py-3 text-right">{holding.shares.toLocaleString()}</td>
-                          <td className="py-3 text-right">${holding.currentPrice.toFixed(2)}</td>
-                          <td className="py-3 text-right">${holding.marketValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                          <td className={`py-3 text-right ${holding.gainLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            ${holding.gainLoss.toLocaleString('en-US', { minimumFractionDigits: 2 })} ({holding.gainLossPercent.toFixed(2)}%)
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              <div className="space-y-4 animate-fade-in" style={{ animationDelay: '100ms' }}>
+                <h3 className="text-xl font-semibold">Holdings</h3>
+                <div className="grid gap-4">
+                  {portfolioData.holdings.map((holding: any, index: number) => (
+                    <PositionCard
+                      key={holding.symbol}
+                      position={{
+                        portfolioId: `PF-${portfolioData.accountNumber}`,
+                        investmentId: `INV-${holding.symbol}-001`,
+                        symbol: holding.symbol,
+                        name: holding.name,
+                        quantity: holding.shares,
+                        costBasis: holding.marketValue - holding.gainLoss,
+                        currentPrice: holding.currentPrice,
+                        marketValue: holding.marketValue,
+                        currency: 'USD',
+                        status: 'ACTIVE' as const,
+                        gainLoss: holding.gainLoss,
+                        gainLossPercent: holding.gainLossPercent,
+                        lastUpdated: portfolioData.lastUpdated,
+                      }}
+                      className="animate-fade-in"
+                      style={{ animationDelay: `${100 + (index * 50)}ms` }}
+                    />
+                  ))}
                 </div>
-              </Card>
+              </div>
               
               <div className="flex gap-4 justify-center animate-fade-in" style={{ animationDelay: '200ms' }}>
                 <Link to={ROUTES.MAIN_MENU}>
