@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, String, Numeric, CheckConstraint, ForeignKeyConstraint, Index
+from sqlalchemy import create_engine, Column, String, Numeric, Date, DateTime, CheckConstraint, ForeignKeyConstraint, Index
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -13,8 +13,8 @@ class Portfolio(Base):
     client_name = Column(String(30))
     client_type = Column(String(1), CheckConstraint("client_type IN ('I', 'C', 'T')"))
     
-    create_date = Column(String(8))
-    last_maint = Column(String(8))
+    create_date = Column(Date)
+    last_maint = Column(Date)
     status = Column(String(1), CheckConstraint("status IN ('A', 'C', 'S')"))
     
     total_value = Column(Numeric(15, 2))
@@ -33,7 +33,7 @@ class Position(Base):
     __tablename__ = "positions"
     
     portfolio_id = Column(String(8), primary_key=True)
-    date = Column(String(8), primary_key=True)
+    date = Column(Date, primary_key=True)
     investment_id = Column(String(10), primary_key=True)
     
     quantity = Column(Numeric(15, 4))
@@ -42,7 +42,7 @@ class Position(Base):
     currency = Column(String(3))
     status = Column(String(1), CheckConstraint("status IN ('A', 'C', 'P')"))
     
-    last_maint_date = Column(String(26))
+    last_maint_date = Column(DateTime)
     last_maint_user = Column(String(8))
     
     __table_args__ = (

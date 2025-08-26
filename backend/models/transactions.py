@@ -1,11 +1,11 @@
-from sqlalchemy import Column, String, Numeric, CheckConstraint, ForeignKeyConstraint, Index
+from sqlalchemy import Column, String, Numeric, Date, Time, DateTime, CheckConstraint, ForeignKeyConstraint, Index
 from .database import Base
 
 class Transaction(Base):
     __tablename__ = "transactions"
     
-    date = Column(String(8), primary_key=True)
-    time = Column(String(6), primary_key=True)
+    date = Column(Date, primary_key=True)
+    time = Column(Time, primary_key=True)
     portfolio_id = Column(String(8), primary_key=True)
     sequence_no = Column(String(6), primary_key=True)
     
@@ -17,7 +17,7 @@ class Transaction(Base):
     currency = Column(String(3))
     status = Column(String(1), CheckConstraint("status IN ('P', 'D', 'F', 'R')"))
     
-    process_date = Column(String(26))
+    process_date = Column(DateTime)
     process_user = Column(String(8))
     
     __table_args__ = (

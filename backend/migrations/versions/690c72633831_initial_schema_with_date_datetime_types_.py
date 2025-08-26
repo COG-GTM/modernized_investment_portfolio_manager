@@ -1,8 +1,8 @@
-"""Initial schema from COBOL structures
+"""Initial schema with Date/DateTime types from COBOL structures
 
-Revision ID: 65eeed226e0d
+Revision ID: 690c72633831
 Revises: 
-Create Date: 2025-08-26 15:34:23.428068
+Create Date: 2025-08-26 16:21:50.369248
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '65eeed226e0d'
+revision: str = '690c72633831'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -26,8 +26,8 @@ def upgrade() -> None:
     sa.Column('account_no', sa.String(length=10), nullable=False),
     sa.Column('client_name', sa.String(length=30), nullable=True),
     sa.Column('client_type', sa.String(length=1), nullable=True),
-    sa.Column('create_date', sa.String(length=8), nullable=True),
-    sa.Column('last_maint', sa.String(length=8), nullable=True),
+    sa.Column('create_date', sa.Date(), nullable=True),
+    sa.Column('last_maint', sa.Date(), nullable=True),
     sa.Column('status', sa.String(length=1), nullable=True),
     sa.Column('total_value', sa.Numeric(precision=15, scale=2), nullable=True),
     sa.Column('cash_balance', sa.Numeric(precision=15, scale=2), nullable=True),
@@ -39,14 +39,14 @@ def upgrade() -> None:
     op.create_index('idx_portfolio_status', 'portfolios', ['status'], unique=False)
     op.create_table('positions',
     sa.Column('portfolio_id', sa.String(length=8), nullable=False),
-    sa.Column('date', sa.String(length=8), nullable=False),
+    sa.Column('date', sa.Date(), nullable=False),
     sa.Column('investment_id', sa.String(length=10), nullable=False),
     sa.Column('quantity', sa.Numeric(precision=15, scale=4), nullable=True),
     sa.Column('cost_basis', sa.Numeric(precision=15, scale=2), nullable=True),
     sa.Column('market_value', sa.Numeric(precision=15, scale=2), nullable=True),
     sa.Column('currency', sa.String(length=3), nullable=True),
     sa.Column('status', sa.String(length=1), nullable=True),
-    sa.Column('last_maint_date', sa.String(length=26), nullable=True),
+    sa.Column('last_maint_date', sa.DateTime(), nullable=True),
     sa.Column('last_maint_user', sa.String(length=8), nullable=True),
     sa.ForeignKeyConstraint(['portfolio_id'], ['portfolios.port_id'], ),
     sa.PrimaryKeyConstraint('portfolio_id', 'date', 'investment_id')
@@ -56,8 +56,8 @@ def upgrade() -> None:
     op.create_index('idx_position_portfolio_id', 'positions', ['portfolio_id'], unique=False)
     op.create_index('idx_position_status', 'positions', ['status'], unique=False)
     op.create_table('transactions',
-    sa.Column('date', sa.String(length=8), nullable=False),
-    sa.Column('time', sa.String(length=6), nullable=False),
+    sa.Column('date', sa.Date(), nullable=False),
+    sa.Column('time', sa.Time(), nullable=False),
     sa.Column('portfolio_id', sa.String(length=8), nullable=False),
     sa.Column('sequence_no', sa.String(length=6), nullable=False),
     sa.Column('investment_id', sa.String(length=10), nullable=True),
@@ -67,7 +67,7 @@ def upgrade() -> None:
     sa.Column('amount', sa.Numeric(precision=15, scale=2), nullable=True),
     sa.Column('currency', sa.String(length=3), nullable=True),
     sa.Column('status', sa.String(length=1), nullable=True),
-    sa.Column('process_date', sa.String(length=26), nullable=True),
+    sa.Column('process_date', sa.DateTime(), nullable=True),
     sa.Column('process_user', sa.String(length=8), nullable=True),
     sa.ForeignKeyConstraint(['portfolio_id'], ['portfolios.port_id'], ),
     sa.PrimaryKeyConstraint('date', 'time', 'portfolio_id', 'sequence_no')
