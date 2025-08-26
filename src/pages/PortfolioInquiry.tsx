@@ -3,14 +3,15 @@ import { Link } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ROUTES } from '../types/routes';
-import { Container, PageHeader, Card, Button, PositionCard, PortfolioSummary } from '../components';
+import { Container, PageHeader, Card, Button, PositionCard, PortfolioSummary, Alert } from '../components';
 import { AccountInput } from '../components/AccountInput';
 import { accountFormSchema, type AccountFormData, type PortfolioSummary as PortfolioSummaryType } from '../types/account';
-import { generateMockPortfolio } from '../utils/mockData';
+import { fetchPortfolio, ApiError } from '../services/api';
 
 export default function PortfolioInquiry() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [portfolioData, setPortfolioData] = useState<PortfolioSummaryType | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const methods = useForm<AccountFormData>({
     resolver: zodResolver(accountFormSchema),
@@ -21,12 +22,20 @@ export default function PortfolioInquiry() {
 
   const onSubmit = async (data: AccountFormData) => {
     setIsSubmitting(true);
+    setError(null);
     
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const mockPortfolio = generateMockPortfolio(data.accountNumber);
-    setPortfolioData(mockPortfolio);
-    setIsSubmitting(false);
+    try {
+      const portfolio = await fetchPortfolio(data.accountNumber);
+      setPortfolioData(portfolio);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError('An unexpected error occurred. Please try again.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
@@ -37,6 +46,7 @@ export default function PortfolioInquiry() {
 
   const resetForm = () => {
     setPortfolioData(null);
+    setError(null);
     methods.reset();
   };
 
@@ -114,7 +124,7 @@ export default function PortfolioInquiry() {
                     Back to Main Menu
                   </Button>
                 </Link>
-                <Link to={ROUTES.TRANSACTION_HISTORY}>
+                <Link to={`${ROUTES.TRANSACTION_HISTORY}?account=${portfolioData.accountNumber}`}>
                   <Button variant="primary">
                     View Transaction History
                   </Button>
@@ -137,6 +147,12 @@ export default function PortfolioInquiry() {
           />
           
           <main className="space-y-6 animate-slide-up">
+            {error && (
+              <Alert variant="destructive" className="animate-fade-in">
+                {error}
+              </Alert>
+            )}
+            
             <Card hover className="animate-fade-in">
               <FormProvider {...methods}>
                 <form onSubmit={handleSubmit(onSubmit)} onKeyDown={handleKeyDown} className="space-y-6">
