@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from models.portfolio import PortfolioSummary, PortfolioHolding
+from validation.portfolio import validate_account_number
 from datetime import datetime
 from typing import List
 
@@ -60,11 +61,9 @@ def generate_mock_portfolio(account_number: str) -> PortfolioSummary:
 @router.get("/portfolio/{account_number}", response_model=PortfolioSummary)
 async def get_portfolio(account_number: str):
     """Get portfolio summary and holdings for an account"""
-    if len(account_number) != 9 or not account_number.isdigit():
-        raise HTTPException(status_code=400, detail="Invalid account number format")
-    
-    if "0" in account_number:
-        raise HTTPException(status_code=400, detail="Account number cannot contain zero digits")
+    is_valid, message = validate_account_number(account_number)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=message)
     
     return generate_mock_portfolio(account_number)
 
@@ -72,11 +71,9 @@ async def get_portfolio(account_number: str):
 @router.get("/transactions/{account_number}")
 async def get_transactions(account_number: str):
     """Get transaction history for an account (placeholder)"""
-    if len(account_number) != 9 or not account_number.isdigit():
-        raise HTTPException(status_code=400, detail="Invalid account number format")
-    
-    if "0" in account_number:
-        raise HTTPException(status_code=400, detail="Account number cannot contain zero digits")
+    is_valid, message = validate_account_number(account_number)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=message)
     
     return {
         "accountNumber": account_number,
