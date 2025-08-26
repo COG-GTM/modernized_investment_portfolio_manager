@@ -10,6 +10,7 @@ python = "^3.12"
 fastapi = {extras = ["standard"], version = "^0.116.1"}
 psycopg = {extras = ["binary"], version = "^3.2.9"}
 sqlalchemy = "^2.0.43"
+alembic = "^1.13.0"
 
 
 [build-system]
