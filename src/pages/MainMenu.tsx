@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MENU_OPTIONS, MenuState } from '../types/menu';
-import { ConfirmationDialogState } from '../types/navigation';
 import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation';
 import MenuOption from '../components/MenuOption';
-import ConfirmationDialog from '../components/dialogs/ConfirmationDialog';
 import { Container, PageHeader } from '../components';
 
 export default function MainMenu() {
@@ -14,13 +12,6 @@ export default function MainMenu() {
     isKeyboardNavigation: false
   });
   
-  const [confirmationDialog, setConfirmationDialog] = useState<ConfirmationDialogState>({
-    isOpen: false,
-    title: '',
-    message: '',
-    onConfirm: () => {},
-    onCancel: () => {}
-  });
 
   const handleOptionActivate = (index: number) => {
     const option = MENU_OPTIONS[index];
@@ -32,19 +23,7 @@ export default function MainMenu() {
       isKeyboardNavigation: true
     }));
 
-    if (option.id === 'exit') {
-      setConfirmationDialog({
-        isOpen: true,
-        title: 'Exit Application',
-        message: 'Are you sure you want to exit the Investment Portfolio Manager?',
-        onConfirm: () => {
-          window.close();
-        },
-        onCancel: () => {
-          setConfirmationDialog(prev => ({ ...prev, isOpen: false }));
-        }
-      });
-    } else if (option.route) {
+    if (option.route) {
       setTimeout(() => navigate(option.route!), 150);
     }
   };
@@ -85,7 +64,7 @@ export default function MainMenu() {
         <div className="space-y-12">
           <PageHeader 
             title="Investment Portfolio Manager"
-            subtitle="Main Menu - Use arrow keys to navigate, Enter to select, or keyboard shortcuts"
+            subtitle="View, analyze, and manage investment portfolios"
             className="mb-12"
           />
           
@@ -95,7 +74,7 @@ export default function MainMenu() {
             role="menu"
             aria-label="Main navigation menu"
           >
-            <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3 animate-slide-up">
+            <div className="grid gap-6 md:grid-cols-2 max-w-4xl mx-auto animate-slide-up">
               {MENU_OPTIONS.map((option, index) => (
                 <div 
                   key={option.id}
@@ -118,8 +97,7 @@ export default function MainMenu() {
               <p className="text-sm text-muted-foreground">
                 Navigation: Use <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">↑↓</kbd> arrow keys or 
                 shortcuts <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">1</kbd>, 
-                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">2</kbd>, 
-                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">3</kbd>. 
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">2</kbd>. 
                 Press <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">Enter</kbd> to select, 
                 <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">Esc</kbd> to reset.
               </p>
@@ -128,7 +106,6 @@ export default function MainMenu() {
         </div>
       </Container>
 
-      <ConfirmationDialog {...confirmationDialog} />
     </div>
   );
 }
