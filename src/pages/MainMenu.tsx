@@ -102,6 +102,18 @@ export default function MainMenu() {
                 <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">Esc</kbd> to reset.
               </p>
             </div>
+            
+            {/* Fidelity Logo */}
+            <div className="mt-12 flex justify-center animate-fade-in" style={{ animationDelay: '600ms' }}>
+              <img 
+                src="/src/assets/fidelity-logo.png"
+                alt="Fidelity"
+                width={120}
+                height={40}
+                className="opacity-80 hover:opacity-100 transition-opacity"
+              />
+            </div>
+            
           </main>
         </div>
       </Container>
