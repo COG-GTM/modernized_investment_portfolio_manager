@@ -30,8 +30,8 @@ export function AccountInput({ className, autoFocus = true }: AccountInputProps)
       <Input
         id="accountNumber"
         type="text"
-        placeholder="Enter 9-digit account number"
-        maxLength={9}
+        placeholder="Enter 10-digit account number"
+        maxLength={10}
         className={cn(
           errors.accountNumber && 'border-destructive focus-visible:border-destructive',
           className
