@@ -44,6 +44,13 @@ export default function TransactionHistory() {
     <div className="min-h-screen bg-background py-8">
       <Container size="md">
         <div className="space-y-8">
+          <div className="flex items-center justify-between">
+            <Link to={ROUTES.MAIN_MENU}>
+              <Button variant="secondary" size="sm">
+                ← Back to Main Menu
+              </Button>
+            </Link>
+          </div>
           <PageHeader 
             title="Transaction History"
             subtitle="Review your investment transaction activity"
@@ -133,12 +140,7 @@ export default function TransactionHistory() {
               )}
             </Card>
             
-            <div className="flex gap-4 justify-center animate-fade-in" style={{ animationDelay: '200ms' }}>
-              <Link to={ROUTES.MAIN_MENU}>
-                <Button variant="secondary">
-                  Back to Main Menu
-                </Button>
-              </Link>
+            <div className="flex justify-center animate-fade-in" style={{ animationDelay: '200ms' }}>
               <Link to={ROUTES.PORTFOLIO_INQUIRY}>
                 <Button variant="primary">
                   View Portfolio

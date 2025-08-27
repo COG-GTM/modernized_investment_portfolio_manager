@@ -39,7 +39,7 @@ export function AccountInput({ className, autoFocus = true }: AccountInputProps)
         {...register('accountNumber')}
       />
       {errors.accountNumber && (
-        <p className="text-sm text-destructive" role="alert">
+        <p className="text-sm text-destructive whitespace-nowrap" role="alert">
           {errors.accountNumber.message}
         </p>
       )}

@@ -55,6 +55,13 @@ export default function PortfolioInquiry() {
       <div className="min-h-screen bg-background py-8">
         <Container size="md">
           <div className="space-y-8">
+            <div className="flex items-center justify-between">
+              <Link to={ROUTES.MAIN_MENU}>
+                <Button variant="secondary" size="sm">
+                  ← Back to Main Menu
+                </Button>
+              </Link>
+            </div>
             <PageHeader 
               title="Portfolio Details"
               subtitle={`Account: ${portfolioData.accountNumber}`}
@@ -118,12 +125,7 @@ export default function PortfolioInquiry() {
                 </div>
               </div>
               
-              <div className="flex gap-4 justify-center animate-fade-in" style={{ animationDelay: '200ms' }}>
-                <Link to={ROUTES.MAIN_MENU}>
-                  <Button variant="secondary">
-                    Back to Main Menu
-                  </Button>
-                </Link>
+              <div className="flex justify-center animate-fade-in" style={{ animationDelay: '200ms' }}>
                 <Link to={`${ROUTES.TRANSACTION_HISTORY}?account=${portfolioData.accountNumber}`}>
                   <Button variant="primary">
                     View Transaction History
@@ -141,6 +143,13 @@ export default function PortfolioInquiry() {
     <div className="min-h-screen bg-background py-8">
       <Container size="md">
         <div className="space-y-8">
+          <div className="flex items-center justify-between">
+            <Link to={ROUTES.MAIN_MENU}>
+              <Button variant="secondary" size="sm">
+                ← Back to Main Menu
+              </Button>
+            </Link>
+          </div>
           <PageHeader 
             title="Portfolio Inquiry"
             subtitle="Enter your account number to view portfolio details"
@@ -172,13 +181,6 @@ export default function PortfolioInquiry() {
               </FormProvider>
             </Card>
             
-            <div className="flex gap-4 justify-center animate-fade-in" style={{ animationDelay: '200ms' }}>
-              <Link to={ROUTES.MAIN_MENU}>
-                <Button variant="secondary">
-                  Back to Main Menu
-                </Button>
-              </Link>
-            </div>
           </main>
         </div>
       </Container>
