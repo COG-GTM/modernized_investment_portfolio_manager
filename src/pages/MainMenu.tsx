@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { MENU_OPTIONS, MenuState } from '../types/menu';
 import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation';
 import MenuOption from '../components/MenuOption';
-import { Container, PageHeader } from '../components';
+import { Container, PageHeader, Alert } from '../components';
+import { ConfirmationDialog } from '../components/dialogs';
 
 export default function MainMenu() {
   const navigate = useNavigate();
@@ -11,6 +12,12 @@ export default function MainMenu() {
     selectedOption: null,
     isKeyboardNavigation: false
   });
+  const [confirmationDialog, setConfirmationDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: ''
+  });
+  const [error, setError] = useState<string | null>(null);
   
 
   const handleOptionActivate = (index: number) => {
@@ -23,7 +30,13 @@ export default function MainMenu() {
       isKeyboardNavigation: true
     }));
 
-    if (option.route) {
+    if (option.id === 'exit') {
+      setConfirmationDialog({
+        isOpen: true,
+        title: 'Exit Application',
+        message: 'Are you sure you want to exit the Investment Portfolio Manager?'
+      });
+    } else if (option.route) {
       setTimeout(() => navigate(option.route!), 150);
     }
   };
@@ -34,6 +47,24 @@ export default function MainMenu() {
       const index = MENU_OPTIONS.indexOf(option);
       handleOptionActivate(index);
     }
+  };
+
+  const handleExitConfirm = () => {
+    setConfirmationDialog(prev => ({ ...prev, isOpen: false }));
+    if (window.close) {
+      window.close();
+    } else {
+      setError('Unable to close application automatically. Please close this browser tab manually.');
+    }
+  };
+
+  const handleExitCancel = () => {
+    setConfirmationDialog(prev => ({ ...prev, isOpen: false }));
+    setMenuState(prev => ({
+      ...prev,
+      selectedOption: null,
+      isKeyboardNavigation: false
+    }));
   };
 
   const { selectedIndex, isKeyboardNavigation, containerRef } = useKeyboardNavigation({
@@ -68,6 +99,12 @@ export default function MainMenu() {
             className="mb-12"
           />
           
+          {error && (
+            <Alert variant="destructive" className="animate-fade-in mb-6">
+              {error}
+            </Alert>
+          )}
+          
           <main 
             ref={containerRef}
             className="mx-auto"
@@ -97,7 +134,8 @@ export default function MainMenu() {
               <p className="text-sm text-muted-foreground">
                 Navigation: Use <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">↑↓</kbd> arrow keys or 
                 shortcuts <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">1</kbd>, 
-                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">2</kbd>. 
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">2</kbd>, 
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">3</kbd>. 
                 Press <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">Enter</kbd> to select, 
                 <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">Esc</kbd> to reset.
               </p>
@@ -106,6 +144,13 @@ export default function MainMenu() {
         </div>
       </Container>
 
+      <ConfirmationDialog
+        isOpen={confirmationDialog.isOpen}
+        title={confirmationDialog.title}
+        message={confirmationDialog.message}
+        onConfirm={handleExitConfirm}
+        onCancel={handleExitCancel}
+      />
     </div>
   );
 }
