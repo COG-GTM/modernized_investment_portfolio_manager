@@ -57,8 +57,6 @@ Modernized version of the COBOL Legacy Benchmark Suite (CLBS), a production-grad
 
 ### Database Management
 
-For detailed database setup, seeding, and persistence options, see [backend/README_DATABASE.md](backend/README_DATABASE.md).
-
 **Quick database commands:**
 - Fresh setup: `./setup_database.sh`
 - Manual seeding: `python seed_database.py`
