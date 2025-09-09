@@ -9,8 +9,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# async def startup_event():
-
 # Disable CORS. Do not remove this for full-stack development.
 app.add_middleware(
     CORSMiddleware,
