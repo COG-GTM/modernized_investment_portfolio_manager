@@ -126,3 +126,120 @@ class PortfolioService:
                 db_session=self.db
             )
             self.db.add(audit_record)
+    
+    def update_portfolio_status(self, portfolio_id: str, account_number: str, 
+                               new_status: str, user: str = "SYSTEM") -> Dict[str, any]:
+        try:
+            portfolio = self.db.query(Portfolio).filter(
+                Portfolio.port_id == portfolio_id,
+                Portfolio.account_no == account_number
+            ).first()
+            
+            if not portfolio:
+                return {"success": False, "message": "Portfolio not found", "errors": ["Record not found"]}
+            
+            if new_status not in ['A', 'C', 'S']:
+                return {"success": False, "message": "Invalid status", "errors": ["Status must be A, C, or S"]}
+            
+            before_data = portfolio.to_dict()
+            
+            portfolio.status = new_status
+            portfolio.last_maint = date.today()
+            portfolio.last_user = user
+            
+            audit_record = History.create_audit_record(
+                portfolio_id=portfolio_id,
+                record_type="PT",
+                action_code="C",
+                before_data=before_data,
+                after_data=portfolio.to_dict(),
+                reason_code="UPDT",
+                user=user,
+                db_session=self.db
+            )
+            self.db.add(audit_record)
+            
+            self.db.commit()
+            return {"success": True, "message": "Status updated successfully", "errors": []}
+            
+        except Exception as e:
+            self.db.rollback()
+            return {"success": False, "message": "Update failed", "errors": [str(e)]}
+    
+    def update_portfolio_name(self, portfolio_id: str, account_number: str,
+                             new_name: str, user: str = "SYSTEM") -> Dict[str, any]:
+        try:
+            portfolio = self.db.query(Portfolio).filter(
+                Portfolio.port_id == portfolio_id,
+                Portfolio.account_no == account_number
+            ).first()
+            
+            if not portfolio:
+                return {"success": False, "message": "Portfolio not found", "errors": ["Record not found"]}
+            
+            if len(new_name) > 30:
+                return {"success": False, "message": "Name too long", "errors": ["Client name must be 30 characters or less"]}
+            
+            before_data = portfolio.to_dict()
+            
+            portfolio.client_name = new_name
+            portfolio.last_maint = date.today()
+            portfolio.last_user = user
+            
+            audit_record = History.create_audit_record(
+                portfolio_id=portfolio_id,
+                record_type="PT",
+                action_code="C",
+                before_data=before_data,
+                after_data=portfolio.to_dict(),
+                reason_code="UPDT",
+                user=user,
+                db_session=self.db
+            )
+            self.db.add(audit_record)
+            
+            self.db.commit()
+            return {"success": True, "message": "Client name updated successfully", "errors": []}
+            
+        except Exception as e:
+            self.db.rollback()
+            return {"success": False, "message": "Update failed", "errors": [str(e)]}
+    
+    def update_portfolio_value(self, portfolio_id: str, account_number: str,
+                              new_value: Decimal, user: str = "SYSTEM") -> Dict[str, any]:
+        try:
+            portfolio = self.db.query(Portfolio).filter(
+                Portfolio.port_id == portfolio_id,
+                Portfolio.account_no == account_number
+            ).first()
+            
+            if not portfolio:
+                return {"success": False, "message": "Portfolio not found", "errors": ["Record not found"]}
+            
+            if new_value < 0:
+                return {"success": False, "message": "Invalid value", "errors": ["Total value cannot be negative"]}
+            
+            before_data = portfolio.to_dict()
+            
+            portfolio.total_value = new_value
+            portfolio.last_maint = date.today()
+            portfolio.last_user = user
+            
+            audit_record = History.create_audit_record(
+                portfolio_id=portfolio_id,
+                record_type="PT",
+                action_code="C",
+                before_data=before_data,
+                after_data=portfolio.to_dict(),
+                reason_code="UPDT",
+                user=user,
+                db_session=self.db
+            )
+            self.db.add(audit_record)
+            
+            self.db.commit()
+            return {"success": True, "message": "Total value updated successfully", "errors": []}
+            
+        except Exception as e:
+            self.db.rollback()
+            return {"success": False, "message": "Update failed", "errors": [str(e)]}
