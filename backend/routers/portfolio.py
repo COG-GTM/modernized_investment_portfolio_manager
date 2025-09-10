@@ -1,10 +1,24 @@
-from fastapi import APIRouter, HTTPException
-from models.portfolio import PortfolioSummary, PortfolioHolding
+from fastapi import APIRouter, HTTPException, Depends
+from models.portfolio import (PortfolioSummary, PortfolioHolding, 
+                             PortfolioStatusUpdateRequest, PortfolioNameUpdateRequest,
+                             PortfolioValueUpdateRequest, PortfolioUpdateResponse)
+from models.database import SessionLocal, Portfolio
+from services.portfolio_service import PortfolioService
 from validation.portfolio import validate_account_number
 from datetime import datetime
 from typing import List
+from decimal import Decimal
+from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/api", tags=["portfolio"])
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 def generate_mock_portfolio(account_number: str) -> PortfolioSummary:
@@ -80,3 +94,72 @@ async def get_transactions(account_number: str):
         "transactions": [],
         "message": "Transaction history endpoint - placeholder implementation"
     }
+
+
+@router.put("/portfolio/{portfolio_id}/status", response_model=PortfolioUpdateResponse)
+async def update_portfolio_status(portfolio_id: str, request: PortfolioStatusUpdateRequest, 
+                                db: Session = Depends(get_db)):
+    is_valid, message = validate_account_number(request.account_number)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=message)
+    
+    service = PortfolioService(db)
+    result = service.update_portfolio_status(
+        portfolio_id, request.account_number, request.status, request.user
+    )
+    
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["message"])
+    
+    return PortfolioUpdateResponse(
+        success=result["success"],
+        message=result["message"], 
+        portfolio_id=portfolio_id,
+        errors=result["errors"]
+    )
+
+
+@router.put("/portfolio/{portfolio_id}/name", response_model=PortfolioUpdateResponse)
+async def update_portfolio_name(portfolio_id: str, request: PortfolioNameUpdateRequest,
+                              db: Session = Depends(get_db)):
+    is_valid, message = validate_account_number(request.account_number)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=message)
+    
+    service = PortfolioService(db)
+    result = service.update_portfolio_name(
+        portfolio_id, request.account_number, request.client_name, request.user
+    )
+    
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["message"])
+    
+    return PortfolioUpdateResponse(
+        success=result["success"],
+        message=result["message"],
+        portfolio_id=portfolio_id, 
+        errors=result["errors"]
+    )
+
+
+@router.put("/portfolio/{portfolio_id}/value", response_model=PortfolioUpdateResponse)
+async def update_portfolio_value(portfolio_id: str, request: PortfolioValueUpdateRequest,
+                               db: Session = Depends(get_db)):
+    is_valid, message = validate_account_number(request.account_number)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=message)
+    
+    service = PortfolioService(db)
+    result = service.update_portfolio_value(
+        portfolio_id, request.account_number, Decimal(str(request.total_value)), request.user
+    )
+    
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["message"])
+    
+    return PortfolioUpdateResponse(
+        success=result["success"],
+        message=result["message"],
+        portfolio_id=portfolio_id,
+        errors=result["errors"]
+    )
