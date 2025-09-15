@@ -1,6 +1,11 @@
-from fastapi import APIRouter, HTTPException
-from models.portfolio import PortfolioSummary, PortfolioHolding
-from validation.portfolio import validate_account_number
+from fastapi import APIRouter, HTTPException, Depends
+from models.portfolio import (
+    PortfolioSummary, PortfolioHolding, 
+    StatusUpdateRequest, ClientNameUpdateRequest, ValueUpdateRequest, PortfolioUpdateResponse
+)
+from models.database import SessionLocal
+from services.portfolio_service import PortfolioService
+from validation.portfolio import validate_account_number, validate_portfolio_id
 from datetime import datetime
 from typing import List
 
@@ -80,3 +85,83 @@ async def get_transactions(account_number: str):
         "transactions": [],
         "message": "Transaction history endpoint - placeholder implementation"
     }
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+@router.put("/portfolio/status", response_model=PortfolioUpdateResponse)
+async def update_portfolio_status(request: StatusUpdateRequest, db = Depends(get_db)):
+    """Update portfolio status"""
+    is_valid_port, port_msg = validate_portfolio_id(request.portfolio_id)
+    if not is_valid_port:
+        raise HTTPException(status_code=400, detail=port_msg)
+    
+    is_valid_acct, acct_msg = validate_account_number(request.account_no)
+    if not is_valid_acct:
+        raise HTTPException(status_code=400, detail=acct_msg)
+    
+    service = PortfolioService(db)
+    result = service.update_portfolio_status(request)
+    
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["errors"])
+    
+    return PortfolioUpdateResponse(
+        success=True,
+        message="Portfolio status updated successfully",
+        portfolio_id=request.portfolio_id
+    )
+
+
+@router.put("/portfolio/client-name", response_model=PortfolioUpdateResponse)
+async def update_portfolio_client_name(request: ClientNameUpdateRequest, db = Depends(get_db)):
+    """Update portfolio client name"""
+    is_valid_port, port_msg = validate_portfolio_id(request.portfolio_id)
+    if not is_valid_port:
+        raise HTTPException(status_code=400, detail=port_msg)
+    
+    is_valid_acct, acct_msg = validate_account_number(request.account_no)
+    if not is_valid_acct:
+        raise HTTPException(status_code=400, detail=acct_msg)
+    
+    service = PortfolioService(db)
+    result = service.update_portfolio_client_name(request)
+    
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["errors"])
+    
+    return PortfolioUpdateResponse(
+        success=True,
+        message="Portfolio client name updated successfully",
+        portfolio_id=request.portfolio_id
+    )
+
+
+@router.put("/portfolio/value", response_model=PortfolioUpdateResponse)
+async def update_portfolio_value(request: ValueUpdateRequest, db = Depends(get_db)):
+    """Update portfolio total value"""
+    is_valid_port, port_msg = validate_portfolio_id(request.portfolio_id)
+    if not is_valid_port:
+        raise HTTPException(status_code=400, detail=port_msg)
+    
+    is_valid_acct, acct_msg = validate_account_number(request.account_no)
+    if not is_valid_acct:
+        raise HTTPException(status_code=400, detail=acct_msg)
+    
+    service = PortfolioService(db)
+    result = service.update_portfolio_value(request)
+    
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["errors"])
+    
+    return PortfolioUpdateResponse(
+        success=True,
+        message="Portfolio value updated successfully",
+        portfolio_id=request.portfolio_id
+    )
