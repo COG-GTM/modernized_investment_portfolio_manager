@@ -158,7 +158,7 @@ export default function PortfolioInquiry() {
           <main className="space-y-6 animate-slide-up">
             {error && (
               <Alert variant="destructive" className="animate-fade-in">
-                <div dangerouslySetInnerHTML={{ __html: error }} />
+                {error}
               </Alert>
             )}
             
