@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useHistory } from 'react-router-dom';
 import { MENU_OPTIONS, MenuState } from '../types/menu';
 import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation';
 import MenuOption from '../components/MenuOption';
 import { Container, PageHeader } from '../components';
 
 export default function MainMenu() {
-  const navigate = useNavigate();
+  const history = useHistory();
   const [menuState, setMenuState] = useState<MenuState>({
     selectedOption: null,
     isKeyboardNavigation: false
@@ -24,7 +24,7 @@ export default function MainMenu() {
     }));
 
     if (option.route) {
-      setTimeout(() => navigate(option.route!), 150);
+      setTimeout(() => history.push(option.route!), 150);
     }
   };
 

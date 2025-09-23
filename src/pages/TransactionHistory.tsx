@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ROUTES } from '../types/routes';
 import { Container, PageHeader, Card, Button, SkeletonLoader, Alert } from '../components';
 import { fetchTransactions, ApiError } from '../services/api';
@@ -12,11 +12,12 @@ export default function TransactionHistory() {
     transactions: any[];
     message: string;
   } | null>(null);
-  const [searchParams] = useSearchParams();
+  const location = useLocation();
 
   useEffect(() => {
     const loadTransactions = async () => {
-      const accountNumber = searchParams.get('account');
+      const urlParams = new URLSearchParams(location.search);
+      const accountNumber = urlParams.get('account');
       
       if (!accountNumber) {
         setLoading(false);
@@ -38,7 +39,7 @@ export default function TransactionHistory() {
     };
 
     loadTransactions();
-  }, [searchParams]);
+  }, [location.search]);
 
   return (
     <div className="min-h-screen bg-background py-8">

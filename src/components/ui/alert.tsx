@@ -22,14 +22,15 @@ const alertVariants = cva(
 function Alert({
   className,
   variant,
+  dangerousContent,
   ...props
-}: React.ComponentProps<"div"> & VariantProps<typeof alertVariants>) {
+}: React.ComponentProps<"div"> & VariantProps<typeof alertVariants> & { dangerousContent?: string }) {
   return (
     <div
       data-slot="alert"
       role="alert"
       className={cn(alertVariants({ variant }), className)}
-      {...props}
+      {...(dangerousContent ? { dangerouslySetInnerHTML: { __html: dangerousContent } } : props)}
     />
   )
 }
