@@ -1,6 +1,6 @@
 import type { PortfolioSummary } from '../types/account';
 
-const API_BASE_URL = '/api';
+const API_BASE_URL = 'https://user:cce72ec91d420492459c66eaddd339f6@investment-portfolio-app-tunnel-299xx5ha.devinapps.com/api';
 
 export class ApiError extends Error {
   constructor(
