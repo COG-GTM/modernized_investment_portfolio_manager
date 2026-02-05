@@ -16,6 +16,9 @@ export default function PortfolioInquiry() {
   const methods = useForm<AccountFormData>({
     resolver: zodResolver(accountFormSchema),
     mode: 'onChange',
+    defaultValues: {
+      accountNumber: '',
+    },
   });
 
   const { handleSubmit, formState: { isValid } } = methods;
