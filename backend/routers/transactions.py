@@ -47,7 +47,7 @@ async def create_transaction(request: CreateTransactionRequest, db: Session = De
 
     quantity = Decimal(str(request.quantity)) if request.quantity is not None else None
     price = Decimal(str(request.price)) if request.price is not None else None
-    amount = (quantity * price) if quantity and price else Decimal("0.00")
+    amount = (quantity * price) if quantity is not None and price is not None else Decimal("0.00")
 
     transaction = Transaction(
         date=txn_date,
@@ -88,15 +88,17 @@ async def create_transaction(request: CreateTransactionRequest, db: Session = De
     )
 
 
-@router.put("/transactions/{transaction_id}/status", response_model=TransactionDBResponse)
+@router.put("/transactions/{portfolio_id}/{sequence_no}/status", response_model=TransactionDBResponse)
 async def update_transaction_status(
-    transaction_id: str,
+    portfolio_id: str,
+    sequence_no: str,
     request: UpdateTransactionStatusRequest,
     db: Session = Depends(get_db),
 ):
     """Update transaction status using state machine validation"""
     transaction = db.query(Transaction).filter(
-        Transaction.sequence_no == transaction_id
+        Transaction.portfolio_id == portfolio_id,
+        Transaction.sequence_no == sequence_no,
     ).first()
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")

@@ -221,7 +221,8 @@ async def get_portfolio_performance(portfolio_id: str, db: Session = Depends(get
         gain_loss_data = pos.calculate_gain_loss()
         total_gain_loss += gain_loss_data["gain_loss"]
 
-    total_value = portfolio.calculate_total_value()
+    total_market_value = sum((pos.market_value or Decimal("0.00")) for pos in active_positions)
+    total_value = total_market_value + (portfolio.cash_balance or Decimal("0.00"))
 
     return PortfolioPerformanceResponse(
         total_value=float(total_value),
