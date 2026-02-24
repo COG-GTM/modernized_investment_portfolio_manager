@@ -17,12 +17,12 @@ export default function PortfolioView() {
   const navigate = useNavigate();
   const { addToast } = useToast();
 
-  const [loading, setLoading] = useState(false);
+  // If id is 'lookup', show account search form
+  const isLookupMode = id === 'lookup';
+  const [loading, setLoading] = useState(!isLookupMode && !!id);
   const [error, setError] = useState<string | null>(null);
   const [portfolioData, setPortfolioData] = useState<PortfolioSummary | null>(null);
 
-  // If id is 'lookup', show account search form
-  const isLookupMode = id === 'lookup';
   const [accountInput, setAccountInput] = useState('');
   const [inputError, setInputError] = useState<string | null>(null);
 
@@ -82,9 +82,9 @@ export default function PortfolioView() {
     totalGainLoss: data.totalGainLoss,
     totalGainLossPercent: data.totalGainLossPercent,
     currency: 'USD',
-    positions: data.holdings.map((h) => ({
+    positions: data.holdings.map((h, index) => ({
       portfolioId: `PF-${data.accountNumber}`,
-      investmentId: `INV-${h.symbol}-001`,
+      investmentId: `INV-${h.symbol}-${index}`,
       symbol: h.symbol,
       name: h.name,
       quantity: h.shares,

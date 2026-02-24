@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { ApiError } from '../services/api';
-import Container from '../components/Container';
 import PageHeader from '../components/PageHeader';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -49,15 +48,14 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center py-8">
-      <Container size="sm">
-        <div className="space-y-8">
-          <PageHeader
-            title="Investment Portfolio Manager"
-            subtitle="Sign in to access your portfolio"
-          />
+    <div className="min-h-screen bg-background flex items-center justify-center py-8 px-4">
+      <div style={{ width: '100%', maxWidth: '28rem' }} className="space-y-8">
+        <PageHeader
+          title="Investment Portfolio Manager"
+          subtitle="Sign in to access your portfolio"
+        />
 
-          <Card className="animate-slide-up max-w-md mx-auto">
+        <Card className="animate-slide-up">
             <form onSubmit={handleSubmit} className="space-y-6">
               <h2 className="text-2xl font-semibold text-center">Sign In</h2>
 
@@ -109,9 +107,8 @@ export default function Login() {
                 {isSubmitting ? 'Signing in...' : 'Sign In'}
               </Button>
             </form>
-          </Card>
-        </div>
-      </Container>
+        </Card>
+      </div>
     </div>
   );
 }
