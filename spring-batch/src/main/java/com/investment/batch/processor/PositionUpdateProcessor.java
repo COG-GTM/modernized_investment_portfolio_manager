@@ -57,6 +57,9 @@ public class PositionUpdateProcessor implements ItemProcessor<Transaction, Posit
                     position.getPortfolioId(), position.getInvestmentId());
         } else {
             position = createNewPosition(transaction, positionDate);
+            if (position == null) {
+                return null;
+            }
             createdCount++;
             log.debug("Created new position: portfolio={}, investment={}",
                     position.getPortfolioId(), position.getInvestmentId());
