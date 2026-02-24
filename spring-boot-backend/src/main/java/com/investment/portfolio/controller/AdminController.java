@@ -35,7 +35,7 @@ public class AdminController {
             Authentication authentication, HttpServletRequest request) {
         auditService.logAccess(authentication.getName(), "/api/admin/audit-logs",
                 request.getRemoteAddr());
-        List<AuditLog> logs = auditService.getAuditLogsForUser(authentication.getName());
+        List<AuditLog> logs = auditService.getAllAuditLogs();
         return ResponseEntity.ok(logs);
     }
 

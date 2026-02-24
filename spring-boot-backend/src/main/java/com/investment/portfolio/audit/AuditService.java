@@ -103,6 +103,15 @@ public class AuditService {
     }
 
     /**
+     * Retrieve all audit logs (admin overview).
+     * Replaces SECMGR system-level audit trail review.
+     */
+    @Transactional(readOnly = true)
+    public List<AuditLog> getAllAuditLogs() {
+        return auditLogRepository.findAll();
+    }
+
+    /**
      * Retrieve audit logs for a specific user.
      */
     @Transactional(readOnly = true)

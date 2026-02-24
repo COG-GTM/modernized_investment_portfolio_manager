@@ -56,11 +56,10 @@ public class GlobalExceptionHandler {
         String traceId = generateTraceId();
         logger.error("Authentication failed [traceId={}]: {}", traceId, ex.getMessage());
 
-        String username = request.getParameter("username");
-        if (username == null) {
-            username = "unknown";
-        }
-        auditService.logLoginFailure(username, request.getRemoteAddr(), ex.getMessage());
+        // Note: Failed login audit logging with the actual username is handled
+        // in AuthService.login() where the username from the JSON body is available.
+        // The GlobalExceptionHandler cannot reliably extract the username from a
+        // JSON request body since the input stream is already consumed by @RequestBody.
 
         ErrorResponse errorResponse = new ErrorResponse(
                 HttpStatus.UNAUTHORIZED.value(),

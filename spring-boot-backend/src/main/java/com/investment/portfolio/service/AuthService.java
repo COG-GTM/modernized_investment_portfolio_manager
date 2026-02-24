@@ -10,6 +10,7 @@ import com.investment.portfolio.repository.RoleRepository;
 import com.investment.portfolio.repository.UserRepository;
 import com.investment.portfolio.security.JwtTokenProvider;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -53,12 +54,18 @@ public class AuthService {
 
     @Transactional
     public AuthResponse login(LoginRequest loginRequest, String ipAddress) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        loginRequest.getUsername(),
-                        loginRequest.getPassword()
-                )
-        );
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            loginRequest.getUsername(),
+                            loginRequest.getPassword()
+                    )
+            );
+        } catch (BadCredentialsException ex) {
+            auditService.logLoginFailure(loginRequest.getUsername(), ipAddress, ex.getMessage());
+            throw ex;
+        }
 
         String token = jwtTokenProvider.generateToken(authentication);
 
