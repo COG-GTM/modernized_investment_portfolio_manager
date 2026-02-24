@@ -18,7 +18,7 @@ public class HistoryLoadProcessor implements ItemProcessor<Transaction, Transact
 
     private static final Logger log = LoggerFactory.getLogger(HistoryLoadProcessor.class);
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
-    private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HHmmssnn");
+    private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HHmmssSS");
 
     private long processedCount;
 
@@ -40,8 +40,10 @@ public class HistoryLoadProcessor implements ItemProcessor<Transaction, Transact
         history.setDate(transaction.getDate() != null ? transaction.getDate().format(DATE_FMT) : "");
         history.setTime(transaction.getTime() != null ? transaction.getTime().format(TIME_FMT) : "");
 
-        // Generate sequence number
-        String seqNo = String.format("%04d", (processedCount % 9999) + 1);
+        // Use transaction's own sequence number for stable PK mapping
+        String seqNo = transaction.getSequenceNo() != null && transaction.getSequenceNo().length() >= 4
+                ? transaction.getSequenceNo().substring(transaction.getSequenceNo().length() - 4)
+                : String.format("%04d", (processedCount % 9999) + 1);
         history.setSeqNo(seqNo);
 
         history.setRecordType(TransactionHistory.RECORD_TYPE_TRANSACTION);

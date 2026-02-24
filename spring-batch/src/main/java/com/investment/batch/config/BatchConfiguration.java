@@ -26,8 +26,10 @@ import org.springframework.batch.core.job.flow.Flow;
 import org.springframework.batch.core.job.flow.support.SimpleFlow;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.batch.item.database.JpaCursorItemReader;
 import org.springframework.batch.item.database.JpaItemWriter;
 import org.springframework.batch.item.database.JpaPagingItemReader;
+import org.springframework.batch.item.database.builder.JpaCursorItemReaderBuilder;
 import org.springframework.batch.item.database.builder.JpaItemWriterBuilder;
 import org.springframework.batch.item.database.builder.JpaPagingItemReaderBuilder;
 import org.springframework.beans.factory.annotation.Value;
@@ -90,12 +92,11 @@ public class BatchConfiguration {
     // =====================================================
 
     @Bean
-    public JpaPagingItemReader<Transaction> pendingTransactionReader(EntityManagerFactory entityManagerFactory) {
-        return new JpaPagingItemReaderBuilder<Transaction>()
+    public JpaCursorItemReader<Transaction> pendingTransactionReader(EntityManagerFactory entityManagerFactory) {
+        return new JpaCursorItemReaderBuilder<Transaction>()
                 .name("pendingTransactionReader")
                 .entityManagerFactory(entityManagerFactory)
                 .queryString("SELECT t FROM Transaction t WHERE t.status = 'P' ORDER BY t.date, t.time, t.sequenceNo")
-                .pageSize(chunkSize)
                 .build();
     }
 
@@ -115,7 +116,7 @@ public class BatchConfiguration {
     @Bean
     public Step transactionValidationStep(JobRepository jobRepository,
                                            PlatformTransactionManager transactionManager,
-                                           JpaPagingItemReader<Transaction> pendingTransactionReader,
+                                           JpaCursorItemReader<Transaction> pendingTransactionReader,
                                            TransactionValidationProcessor transactionValidationProcessor,
                                            JpaItemWriter<Transaction> transactionWriter,
                                            BatchControlService batchControlService) {
