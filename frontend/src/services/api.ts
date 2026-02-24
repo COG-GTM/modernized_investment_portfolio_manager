@@ -59,18 +59,18 @@ function handleApiError(error: unknown): never {
     throw error;
   }
   if (axios.isAxiosError(error)) {
-    const status = error.response?.status;
-    const detail = error.response?.data?.detail;
-    const statusText = error.response?.statusText ?? 'Unknown Error';
+    if (!error.response) {
+      throw new ApiError(
+        'Unable to connect to the server. Please ensure the backend is running.'
+      );
+    }
+    const status = error.response.status;
+    const detail = error.response.data?.detail;
+    const statusText = error.response.statusText ?? 'Unknown Error';
     throw new ApiError(
       detail || `HTTP ${status}: ${statusText}`,
       status,
       statusText
-    );
-  }
-  if (error instanceof Error && error.message.includes('Network Error')) {
-    throw new ApiError(
-      'Unable to connect to the server. Please ensure the backend is running.'
     );
   }
   throw new ApiError('An unexpected error occurred.');
