@@ -22,7 +22,7 @@ export function formatPercentage(value: number, decimals: number = 2): string {
 }
 
 export function formatDate(date: Date | string): string {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  const dateObj = typeof date === 'string' ? new Date(date + (date.length === 10 ? 'T00:00:00' : '')) : date;
   if (isNaN(dateObj.getTime())) return 'N/A';
   return dateObj.toLocaleDateString('en-US', {
     year: 'numeric',
