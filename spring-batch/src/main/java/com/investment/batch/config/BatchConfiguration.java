@@ -167,6 +167,7 @@ public class BatchConfiguration {
                 .reader(validatedTransactionReader)
                 .processor(positionUpdateProcessor)
                 .writer(positionWriter)
+                .listener(positionUpdateProcessor)  // clears position cache at step start
                 .listener(new StepExecutionReportListener(batchControlService, "POSUPD00", maxReturnCode))
                 .build();
     }
