@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.batch.item.ItemProcessor;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -72,7 +73,8 @@ public class PositionUpdateProcessor implements ItemProcessor<Transaction, Posit
         BigDecimal txnAmount = transaction.getAmount() != null ? transaction.getAmount() : BigDecimal.ZERO;
         BigDecimal txnQuantity = transaction.getQuantity() != null ? transaction.getQuantity() : BigDecimal.ZERO;
 
-        switch (transaction.getType()) {
+        String txnType = transaction.getType() != null ? transaction.getType() : "";
+        switch (txnType) {
             case Transaction.TYPE_BUY:
                 position.setQuantity(quantity.add(txnQuantity));
                 position.setCostBasis(costBasis.add(txnAmount));
@@ -81,7 +83,11 @@ public class PositionUpdateProcessor implements ItemProcessor<Transaction, Posit
                 break;
             case Transaction.TYPE_SELL:
                 position.setQuantity(quantity.subtract(txnQuantity));
-                position.setCostBasis(costBasis.subtract(txnAmount));
+                // Proportional cost basis reduction: (sellQty / totalQty) * totalCostBasis
+                BigDecimal costBasisReduction = quantity.compareTo(BigDecimal.ZERO) > 0
+                        ? costBasis.multiply(txnQuantity).divide(quantity, 2, RoundingMode.HALF_UP)
+                        : BigDecimal.ZERO;
+                position.setCostBasis(costBasis.subtract(costBasisReduction));
                 position.setMarketValue(position.getQuantity().multiply(
                         transaction.getPrice() != null ? transaction.getPrice() : BigDecimal.ZERO));
                 if (position.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
@@ -112,6 +118,11 @@ public class PositionUpdateProcessor implements ItemProcessor<Transaction, Posit
             position.setQuantity(txnQuantity);
             position.setCostBasis(txnAmount);
             position.setMarketValue(txnQuantity.multiply(txnPrice));
+        } else if (Transaction.TYPE_SELL.equals(transaction.getType())) {
+            // Sell with no existing position: skip and log warning
+            log.warn("Sell transaction for non-existent position: portfolio={}, investment={}",
+                    transaction.getPortfolioId(), transaction.getInvestmentId());
+            return null;
         } else {
             position.setQuantity(BigDecimal.ZERO);
             position.setCostBasis(BigDecimal.ZERO);
