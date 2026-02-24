@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { portfolioApi, ApiError } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import Container from '../components/Container';
@@ -16,6 +16,9 @@ export default function PortfolioView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { addToast } = useToast();
+
+  const [searchParams] = useSearchParams();
+  const isHistoryMode = searchParams.get('tab') === 'history';
 
   // If id is 'lookup', show account search form
   const isLookupMode = id === 'lookup';
@@ -63,7 +66,11 @@ export default function PortfolioView() {
       return;
     }
     setInputError(null);
-    navigate(`/portfolios/${trimmed}`);
+    if (isHistoryMode) {
+      navigate(historyPath(trimmed));
+    } else {
+      navigate(`/portfolios/${trimmed}`);
+    }
   };
 
   const handleNewSearch = () => {
@@ -114,8 +121,8 @@ export default function PortfolioView() {
               </Link>
             </div>
             <PageHeader
-              title="Portfolio Position Inquiry"
-              subtitle="Enter your account number to view portfolio details"
+              title={isHistoryMode ? 'Transaction History Inquiry' : 'Portfolio Position Inquiry'}
+              subtitle={isHistoryMode ? 'Enter your account number to view transaction history' : 'Enter your account number to view portfolio details'}
             />
 
             <main className="space-y-6 animate-slide-up">

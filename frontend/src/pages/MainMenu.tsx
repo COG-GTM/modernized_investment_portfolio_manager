@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Container from '../components/Container';
 import PageHeader from '../components/PageHeader';
@@ -41,7 +41,7 @@ export default function MainMenu() {
   const { logout, user } = useAuth();
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
-  const handleOptionClick = (option: MenuOption) => {
+  const handleOptionClick = useCallback((option: MenuOption) => {
     setSelectedOption(option.id);
 
     if (option.id === 'exit') {
@@ -53,7 +53,19 @@ export default function MainMenu() {
     if (option.path) {
       setTimeout(() => navigate(option.path!), 150);
     }
-  };
+  }, [logout, navigate]);
+
+  // Global keyboard shortcuts (1/2/3) matching COBOL CICS PF key behavior
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const option = MENU_OPTIONS.find(o => o.shortcut === e.key);
+      if (option) {
+        handleOptionClick(option);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [handleOptionClick]);
 
   const handleKeyDown = (e: React.KeyboardEvent, option: MenuOption) => {
     if (e.key === 'Enter' || e.key === ' ') {
