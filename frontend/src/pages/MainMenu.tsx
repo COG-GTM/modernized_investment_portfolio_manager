@@ -58,6 +58,8 @@ export default function MainMenu() {
   // Global keyboard shortcuts (1/2/3) matching COBOL CICS PF key behavior
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
       const option = MENU_OPTIONS.find(o => o.shortcut === e.key);
       if (option) {
         handleOptionClick(option);

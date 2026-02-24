@@ -264,5 +264,23 @@ export default function PortfolioView() {
     );
   }
 
-  return null;
+  // Fallback: show loading skeleton during transient navigation states
+  return (
+    <div className="min-h-screen bg-background py-8">
+      <Container size="md">
+        <div className="space-y-8">
+          <div className="flex items-center justify-between">
+            <Link to="/">
+              <Button variant="secondary" size="sm">← Back to Main Menu</Button>
+            </Link>
+          </div>
+          <PageHeader title="Portfolio Details" subtitle="Loading..." />
+          <div className="space-y-4">
+            <SkeletonLoader lines={3} height="h-8" />
+            <SkeletonLoader lines={4} />
+          </div>
+        </div>
+      </Container>
+    </div>
+  );
 }
