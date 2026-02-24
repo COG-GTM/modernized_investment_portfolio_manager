@@ -93,7 +93,7 @@ export const authApi = {
 export const portfolioApi = {
   async getPortfolio(id: string): Promise<PortfolioSummary> {
     try {
-      const response = await api.get<PortfolioSummary>(`/portfolios/${id}`);
+      const response = await api.get<PortfolioSummary>(`/portfolio/${id}`);
       return response.data;
     } catch (error) {
       handleApiError(error);
@@ -107,12 +107,19 @@ export const portfolioApi = {
   ): Promise<TransactionHistoryResponse> {
     try {
       const response = await api.get<TransactionHistoryResponse>(
-        `/portfolios/${id}/history`,
+        `/transactions/${id}`,
         {
           params: { page, pageSize },
         }
       );
-      return response.data;
+      // Backend may not include pagination fields; provide defaults
+      const data = response.data;
+      return {
+        ...data,
+        currentPage: data.currentPage ?? page,
+        totalPages: data.totalPages ?? 1,
+        totalItems: data.totalItems ?? (data.transactions?.length ?? 0),
+      };
     } catch (error) {
       handleApiError(error);
     }
