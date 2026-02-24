@@ -81,7 +81,7 @@ public class GlobalExceptionHandler {
         String traceId = generateTraceId();
         logger.error("Authentication error [traceId={}]: {}", traceId, ex.getMessage());
 
-        auditService.logError("unknown", request.getRequestURI(),
+        tryLogAuditError("unknown", request.getRequestURI(),
                 ex.getMessage(), "ERROR");
 
         ErrorResponse errorResponse = new ErrorResponse(
@@ -106,8 +106,13 @@ public class GlobalExceptionHandler {
         logger.error("Access denied [traceId={}] for user '{}': {}",
                 traceId, username, ex.getMessage());
 
-        auditService.logAuthorizationFailure(username, request.getRequestURI(),
-                request.getRemoteAddr());
+        try {
+            auditService.logAuthorizationFailure(username, request.getRequestURI(),
+                    request.getRemoteAddr());
+        } catch (Exception auditEx) {
+            logger.error("Failed to write audit log for access denied [traceId={}]: {}",
+                    traceId, auditEx.getMessage());
+        }
 
         ErrorResponse errorResponse = new ErrorResponse(
                 HttpStatus.FORBIDDEN.value(),
@@ -129,7 +134,7 @@ public class GlobalExceptionHandler {
         String traceId = generateTraceId();
         logger.error("Account locked [traceId={}]: {}", traceId, ex.getMessage());
 
-        auditService.logError("unknown", request.getRequestURI(),
+        tryLogAuditError("unknown", request.getRequestURI(),
                 "Account locked", "WARNING");
 
         ErrorResponse errorResponse = new ErrorResponse(
@@ -154,7 +159,7 @@ public class GlobalExceptionHandler {
         String username = getCurrentUsername();
         logger.error("Database error [traceId={}]: {}", traceId, ex.getMessage());
 
-        auditService.logError(username, request.getRequestURI(),
+        tryLogAuditError(username, request.getRequestURI(),
                 "Database error: " + ex.getMostSpecificCause().getMessage(), "FATAL");
 
         ErrorResponse errorResponse = new ErrorResponse(
@@ -222,7 +227,7 @@ public class GlobalExceptionHandler {
         String username = getCurrentUsername();
         logger.error("Unexpected error [traceId={}]: {}", traceId, ex.getMessage(), ex);
 
-        auditService.logError(username, request.getRequestURI(),
+        tryLogAuditError(username, request.getRequestURI(),
                 ex.getMessage(), "FATAL");
 
         ErrorResponse errorResponse = new ErrorResponse(
@@ -237,6 +242,19 @@ public class GlobalExceptionHandler {
 
     private String generateTraceId() {
         return UUID.randomUUID().toString();
+    }
+
+    /**
+     * Safely attempt to write an audit error log.
+     * If the database is unavailable, the audit write itself will fail;
+     * catching that ensures the caller still returns a structured ErrorResponse.
+     */
+    private void tryLogAuditError(String username, String resource, String errorDetails, String severity) {
+        try {
+            auditService.logError(username, resource, errorDetails, severity);
+        } catch (Exception auditEx) {
+            logger.error("Failed to write audit log: {}", auditEx.getMessage());
+        }
     }
 
     private String getCurrentUsername() {
