@@ -11,6 +11,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -26,10 +28,27 @@ public class PositionUpdateProcessor implements ItemProcessor<Transaction, Posit
     private long updatedCount;
     private long createdCount;
 
+    // In-memory cache to aggregate multiple transactions for the same position within a chunk.
+    // Without this, the second transaction for the same position would create a duplicate Position
+    // object (since the first hasn't been written yet), and merge() would overwrite the first.
+    private final Map<String, Position> positionCache = new HashMap<>();
+
     public PositionUpdateProcessor(PositionRepository positionRepository) {
         this.positionRepository = positionRepository;
         this.updatedCount = 0;
         this.createdCount = 0;
+    }
+
+    /**
+     * Clear the in-memory position cache. Call this at the start of each step
+     * or chunk to avoid stale data across step restarts.
+     */
+    public void clearCache() {
+        positionCache.clear();
+    }
+
+    private String cacheKey(String portfolioId, LocalDate date, String investmentId) {
+        return portfolioId + "|" + date + "|" + investmentId;
     }
 
     @Override
@@ -44,25 +63,39 @@ public class PositionUpdateProcessor implements ItemProcessor<Transaction, Posit
 
         LocalDate positionDate = transaction.getDate() != null ? transaction.getDate() : LocalDate.now();
 
-        Optional<Position> existingOpt = positionRepository
-                .findByPortfolioIdAndDateAndInvestmentId(
-                        transaction.getPortfolioId(), positionDate, transaction.getInvestmentId());
+        String key = cacheKey(transaction.getPortfolioId(), positionDate, transaction.getInvestmentId());
 
-        Position position;
-        if (existingOpt.isPresent()) {
-            position = existingOpt.get();
+        // Check in-memory cache first (handles multiple txns for same position in one chunk)
+        Position position = positionCache.get(key);
+
+        if (position != null) {
+            // Already processed in this chunk — aggregate onto the cached position
             applyTransaction(position, transaction);
             updatedCount++;
-            log.debug("Updated position: portfolio={}, investment={}",
+            log.debug("Aggregated onto cached position: portfolio={}, investment={}",
                     position.getPortfolioId(), position.getInvestmentId());
         } else {
-            position = createNewPosition(transaction, positionDate);
-            if (position == null) {
-                return null;
+            // Check the database
+            Optional<Position> existingOpt = positionRepository
+                    .findByPortfolioIdAndDateAndInvestmentId(
+                            transaction.getPortfolioId(), positionDate, transaction.getInvestmentId());
+
+            if (existingOpt.isPresent()) {
+                position = existingOpt.get();
+                applyTransaction(position, transaction);
+                updatedCount++;
+                log.debug("Updated position: portfolio={}, investment={}",
+                        position.getPortfolioId(), position.getInvestmentId());
+            } else {
+                position = createNewPosition(transaction, positionDate);
+                if (position == null) {
+                    return null;
+                }
+                createdCount++;
+                log.debug("Created new position: portfolio={}, investment={}",
+                        position.getPortfolioId(), position.getInvestmentId());
             }
-            createdCount++;
-            log.debug("Created new position: portfolio={}, investment={}",
-                    position.getPortfolioId(), position.getInvestmentId());
+            positionCache.put(key, position);
         }
 
         position.setLastMaintDate(LocalDateTime.now());
