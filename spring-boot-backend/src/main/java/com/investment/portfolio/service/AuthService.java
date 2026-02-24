@@ -9,6 +9,7 @@ import com.investment.portfolio.entity.User;
 import com.investment.portfolio.repository.RoleRepository;
 import com.investment.portfolio.repository.UserRepository;
 import com.investment.portfolio.security.JwtTokenProvider;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -99,7 +100,11 @@ public class AuthService {
                 .orElseThrow(() -> new RuntimeException("Default role USER not found"));
         user.setRoles(Collections.singleton(userRole));
 
-        userRepository.save(user);
+        try {
+            userRepository.save(user);
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalArgumentException("Username or email is already taken");
+        }
 
         auditService.logRegistration(registerRequest.getUsername(), ipAddress);
 
