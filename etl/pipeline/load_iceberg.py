@@ -124,6 +124,8 @@ def _prepare_df_for_arrow(df: pd.DataFrame, schema: Schema) -> pa.Table:
     schema_field_names = [field.name for field in schema.fields]
 
     # Ensure only schema columns are present, in the correct order
+    # Copy first to avoid mutating the caller's DataFrame
+    df = df.copy()
     for col in schema_field_names:
         if col not in df.columns:
             df[col] = None
@@ -145,7 +147,7 @@ def _prepare_df_for_arrow(df: pd.DataFrame, schema: Schema) -> pa.Table:
             # Convert to Int64 (nullable integer) to handle NaN
             df_aligned[col_name] = df_aligned[col_name].astype("Int64")
         elif isinstance(field.field_type, StringType):
-            df_aligned[col_name] = df_aligned[col_name].astype(str).replace("nan", None).replace("<NA>", None)
+            df_aligned[col_name] = df_aligned[col_name].astype(str).replace({"nan": None, "None": None, "<NA>": None})
 
     # Build PyArrow schema with correct nullability to match Iceberg schema
     arrow_fields = []
