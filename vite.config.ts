@@ -7,7 +7,16 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     port: 3000,
-    open: true
+    open: true,
+    host: '0.0.0.0',
+    allowedHosts: ['investment-portfolio-app-tunnel-s3fuopog.devinapps.com'],
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false
+      }
+    }
   },
   build: {
     outDir: 'dist',
