@@ -238,6 +238,12 @@ class BatchPipeline:
                 result.message = f"Pipeline halted at {process_id} with RC={step_result.return_code}"
                 break
 
+        # Check if resume point was found in the pipeline sequence
+        if not found_resume_point:
+            logger.error("Resume point '%s' not found in pipeline sequence", last_step)
+            result.overall_return_code = ReturnCode.ERROR
+            result.message = f"Resume point '{last_step}' not found in pipeline sequence"
+
         if result.overall_return_code == 0:
             if result.steps:
                 result.overall_return_code = max(s.return_code for s in result.steps)

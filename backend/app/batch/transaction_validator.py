@@ -8,6 +8,7 @@ checking required fields, validating amounts, verifying portfolio/security
 IDs exist, and checking for duplicates.
 """
 
+import decimal
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -297,37 +298,61 @@ class TransactionValidator:
             quantity = txn.get("quantity")
             price = txn.get("price")
 
+            qty_dec: Optional[Decimal] = None
+            price_dec: Optional[Decimal] = None
+
             if quantity is None:
                 result.errors.append(
                     ValidationError(field="quantity", message="Quantity required for buy/sell transactions")
                 )
-            elif Decimal(str(quantity)) <= 0:
-                result.errors.append(
-                    ValidationError(field="quantity", message="Quantity must be positive for buy/sell transactions")
-                )
+            else:
+                try:
+                    qty_dec = Decimal(str(quantity))
+                except (decimal.InvalidOperation, ValueError):
+                    result.errors.append(
+                        ValidationError(field="quantity", message="Quantity is not a valid number")
+                    )
+                else:
+                    if qty_dec <= 0:
+                        result.errors.append(
+                            ValidationError(field="quantity", message="Quantity must be positive for buy/sell transactions")
+                        )
 
             if price is None:
                 result.errors.append(
                     ValidationError(field="price", message="Price required for buy/sell transactions")
                 )
-            elif Decimal(str(price)) <= 0:
-                result.errors.append(
-                    ValidationError(field="price", message="Price must be positive for buy/sell transactions")
-                )
+            else:
+                try:
+                    price_dec = Decimal(str(price))
+                except (decimal.InvalidOperation, ValueError):
+                    result.errors.append(
+                        ValidationError(field="price", message="Price is not a valid number")
+                    )
+                else:
+                    if price_dec <= 0:
+                        result.errors.append(
+                            ValidationError(field="price", message="Price must be positive for buy/sell transactions")
+                        )
 
             # Cross-check amount vs quantity * price
-            if quantity is not None and price is not None:
+            if qty_dec is not None and price_dec is not None:
                 amount = txn.get("amount")
                 if amount is not None:
-                    expected = Decimal(str(quantity)) * Decimal(str(price))
-                    actual = Decimal(str(amount))
-                    if abs(expected - actual) > Decimal("0.01"):
-                        result.warnings.append(
-                            ValidationError(
-                                field="amount",
-                                message=f"Amount {actual} doesn't match quantity * price ({expected})",
-                                severity="warning",
+                    try:
+                        expected = qty_dec * price_dec
+                        actual = Decimal(str(amount))
+                        if abs(expected - actual) > Decimal("0.01"):
+                            result.warnings.append(
+                                ValidationError(
+                                    field="amount",
+                                    message=f"Amount {actual} doesn't match quantity * price ({expected})",
+                                    severity="warning",
+                                )
                             )
+                    except (decimal.InvalidOperation, ValueError):
+                        result.errors.append(
+                            ValidationError(field="amount", message="Amount is not a valid number")
                         )
 
             # Investment ID required for buy/sell
