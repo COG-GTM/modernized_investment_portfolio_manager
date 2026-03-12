@@ -114,6 +114,12 @@ def _fetch_history_page(
     """
     from models.transactions import Transaction
 
+    # Reset the session if a previous attempt left it in a broken state
+    # (e.g., after OperationalError the transaction is invalidated and any
+    # subsequent query would raise PendingRollbackError).  rollback() is a
+    # no-op on a clean session, so this is safe on the first attempt.
+    db.rollback()
+
     # Base query — replaces CURSMGR SQL statement
     query = db.query(Transaction).filter(Transaction.portfolio_id == portfolio_id)
 
