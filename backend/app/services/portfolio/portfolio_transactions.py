@@ -370,10 +370,10 @@ class PortfolioTransactionProcessor:
             cost_reduction = quantity * cost_per_unit
             position.cost_basis = (position.cost_basis or Decimal("0.00")) - cost_reduction
 
-        if amount:
+        if current_quantity > 0:
             # Use proportional reduction (matching cost_basis logic above)
             # to avoid negative market_value when sale price differs from buy price.
-            proportion = quantity / current_quantity if current_quantity > 0 else Decimal("1")
+            proportion = quantity / current_quantity
             position.market_value = (position.market_value or Decimal("0.00")) - (
                 (position.market_value or Decimal("0.00")) * proportion
             )
