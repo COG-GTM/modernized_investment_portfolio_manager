@@ -32,8 +32,11 @@ from datetime import datetime, date
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
+import json
+
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import text
 
 from models.database import Portfolio, Position, SessionLocal
 from models.history import History
@@ -425,20 +428,40 @@ class PortfolioCRUDService:
             # Save before-image for audit
             before_image = portfolio.to_dict()
 
-            # Write audit record before deletion (mirrors COBOL 2300-WRITE-AUDIT)
-            audit_record = History.create_audit_record(
-                portfolio_id=port_id,
-                record_type="PT",
-                action_code="D",
-                before_data=before_image,
-                reason_code=reason_code,
-                user=user,
-                db_session=self.db,
-            )
-            self.db.add(audit_record)
-
-            # Delete the portfolio record (mirrors COBOL DELETE PORTFOLIO-FILE)
+            # Delete the portfolio record first (mirrors COBOL DELETE PORTFOLIO-FILE)
+            # Note: cascade="all, delete-orphan" on the relationship will also
+            # delete associated positions, transactions, and history records.
             self.db.delete(portfolio)
+            self.db.flush()
+
+            # Write audit record AFTER deletion using raw SQL to bypass the
+            # ORM cascade that would delete it along with the portfolio.
+            # This mirrors COBOL 2300-WRITE-AUDIT which wrote the audit trail
+            # after the DELETE was successful.
+            now = datetime.now()
+            date_str = now.strftime("%Y%m%d")
+            time_str = now.strftime("%H%M%S%f")[:8]
+            self.db.execute(
+                text(
+                    "INSERT INTO history (portfolio_id, date, time, seq_no, "
+                    "record_type, action_code, before_image, after_image, "
+                    "reason_code, process_date, process_user) "
+                    "VALUES (:pid, :dt, :tm, :seq, :rt, :ac, :bi, :ai, :rc, :pd, :pu)"
+                ),
+                {
+                    "pid": port_id,
+                    "dt": date_str,
+                    "tm": time_str,
+                    "seq": "0001",
+                    "rt": "PT",
+                    "ac": "D",
+                    "bi": json.dumps(before_image),
+                    "ai": None,
+                    "rc": reason_code,
+                    "pd": now,
+                    "pu": user,
+                },
+            )
             self.db.commit()
 
             logger.info("Portfolio deleted: %s (reason: %s)", port_id, reason_code)
