@@ -1,5 +1,4 @@
-from sqlalchemy import Column, String, DateTime, CheckConstraint, ForeignKeyConstraint, Index, Text
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, String, DateTime, CheckConstraint, Index, Text
 from .database import Base
 from typing import Dict, Optional
 from datetime import datetime
@@ -22,15 +21,10 @@ class History(Base):
     process_date = Column(DateTime)
     process_user = Column(String(8))
     
-    portfolio = relationship("Portfolio", back_populates="history_records")
-    
+    # No FK to portfolios — the audit trail is a standalone log that must
+    # survive entity deletion (mirrors COBOL audit file design).
+
     __table_args__ = (
-        ForeignKeyConstraint(
-            ['portfolio_id'],
-            ['portfolios.port_id'],
-            deferrable=True,
-            initially='DEFERRED',
-        ),
         Index('idx_history_portfolio_id', 'portfolio_id'),
         Index('idx_history_date', 'date'),
         Index('idx_history_record_type', 'record_type'),
