@@ -371,7 +371,12 @@ class PortfolioTransactionProcessor:
             position.cost_basis = (position.cost_basis or Decimal("0.00")) - cost_reduction
 
         if amount:
-            position.market_value = (position.market_value or Decimal("0.00")) - amount
+            # Use proportional reduction (matching cost_basis logic above)
+            # to avoid negative market_value when sale price differs from buy price.
+            proportion = quantity / current_quantity if current_quantity > 0 else Decimal("1")
+            position.market_value = (position.market_value or Decimal("0.00")) - (
+                (position.market_value or Decimal("0.00")) * proportion
+            )
 
         position.last_maint_date = datetime.now()
         position.last_maint_user = user
