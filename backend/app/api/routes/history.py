@@ -33,6 +33,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import InterfaceError, OperationalError
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from app.api.dependencies import PaginationParams, get_current_user, get_db
@@ -56,16 +57,10 @@ router = APIRouter(prefix="/api/v1/portfolios", tags=["history"])
 #   PERFORM UNTIL WS-RETRY-COUNT >= WS-MAX-RETRIES
 #     attempt reconnect, EXEC CICS DELAY INTERVAL(WS-RETRY-INTERVAL)
 
-def _is_db_error(exc: BaseException) -> bool:
-    """Check if exception is a database-related error worth retrying."""
-    from sqlalchemy.exc import OperationalError, InterfaceError
-    return isinstance(exc, (OperationalError, InterfaceError))
-
-
 db_retry = retry(
     stop=stop_after_attempt(3),               # WS-MAX-RETRIES = 3
     wait=wait_exponential(multiplier=2, min=2, max=10),  # WS-RETRY-INTERVAL = 2
-    retry=retry_if_exception_type((Exception,)),
+    retry=retry_if_exception_type((OperationalError, InterfaceError)),
     reraise=True,
 )
 
