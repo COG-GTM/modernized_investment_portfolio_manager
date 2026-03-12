@@ -16,10 +16,36 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
+
+# --- Legacy models (backend/models/) ---
 from models.database import Base
 from models.transactions import Transaction
+from models.history import History  # noqa: F401 — ensure History table is registered
 
-target_metadata = Base.metadata
+# --- New DB2/VSAM-migrated models (backend/app/db/models/) ---
+from app.db.database import Base as DB2Base  # noqa: F401
+from app.db.models import (  # noqa: F401
+    PortfolioMaster,
+    InvestmentPosition,
+    TransactionHistory,
+    PositionHistory,
+    ErrorLog,
+    ReturnCode,
+    PositionMaster,
+    TransactionFile,
+)
+
+# Merge metadata from both model bases so Alembic sees every table.
+# The legacy models use ``Base``; the new DB2-migrated models use ``DB2Base``.
+from sqlalchemy import MetaData
+
+combined_metadata = MetaData()
+for table in Base.metadata.tables.values():
+    table.to_metadata(combined_metadata)
+for table in DB2Base.metadata.tables.values():
+    table.to_metadata(combined_metadata)
+
+target_metadata = combined_metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
