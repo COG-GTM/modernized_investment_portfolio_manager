@@ -30,7 +30,7 @@ router = APIRouter(prefix="/api/v1/portfolios", tags=["portfolios"])
 # ----------------------------------------------------------------
 
 class CreatePortfolioRequest(BaseModel):
-    port_id: str = Field(..., min_length=5, max_length=8, description="Portfolio ID (starts with 'PORT')")
+    port_id: str = Field(..., min_length=8, max_length=8, description="Portfolio ID (starts with 'PORT')")
     account_no: str = Field(..., min_length=10, max_length=10, description="10-digit account number")
     client_name: str = Field(..., min_length=1, max_length=30, description="Client name")
     client_type: str = Field(default="I", description="Client type: I=Individual, C=Corporate, T=Trust")

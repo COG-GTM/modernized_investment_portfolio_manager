@@ -463,17 +463,6 @@ class PortfolioCRUDService:
             logger.error("Error deleting portfolio %s: %s", port_id, e)
             return False, {"errors": [f"Error deleting Portfolio: {e}"]}
 
-    def _next_history_seq(self, portfolio_id: str, date_str: str, time_str: str) -> str:
-        """Return the next sequence number for a history composite key."""
-        count = self.db.execute(
-            text(
-                "SELECT COUNT(*) FROM history "
-                "WHERE portfolio_id = :pid AND date = :dt AND time = :tm"
-            ),
-            {"pid": portfolio_id, "dt": date_str, "tm": time_str},
-        ).scalar() or 0
-        return f"{count + 1:04d}"
-
     def close(self) -> None:
         """Close database session if we created one."""
         if self._db is not None:
