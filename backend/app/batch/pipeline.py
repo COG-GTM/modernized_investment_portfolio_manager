@@ -185,6 +185,9 @@ class BatchPipeline:
 
         if checkpoint_data and checkpoint_data.status in (CheckpointStatus.ACTIVE, CheckpointStatus.RESTARTED):
             last_step = checkpoint_data.last_key
+            if not last_step:
+                logger.info("Checkpoint has no completed steps, starting from beginning")
+                return self.run_full()
             logger.info("Resuming from after step: %s", last_step)
         else:
             logger.info("No active checkpoint found, starting from beginning")
