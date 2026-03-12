@@ -329,13 +329,16 @@ class PortfolioCRUDService:
             # Save before-image for audit (mirrors COBOL WS-BEFORE-IMAGE)
             before_image = portfolio.to_dict()
 
+            # Validate all inputs before mutating the ORM object so that
+            # an early return on validation failure doesn't leave dirty state.
+            if status is not None and status not in VALID_STATUSES:
+                return False, {"errors": [f"Invalid Portfolio Status: {status}"]}
+
             # Apply updates (mirrors COBOL 2200-APPLY-UPDATE)
             if client_name is not None:
                 portfolio.client_name = client_name
 
             if status is not None:
-                if status not in VALID_STATUSES:
-                    return False, {"errors": [f"Invalid Portfolio Status: {status}"]}
                 portfolio.status = status
 
             if total_value is not None:
@@ -465,7 +468,7 @@ class PortfolioCRUDService:
                     "pid": port_id,
                     "dt": date_str,
                     "tm": time_str,
-                    "seq": "0001",
+                    "seq": self._next_history_seq(port_id, date_str, time_str),
                     "rt": "PT",
                     "ac": "D",
                     "bi": json.dumps(before_image),
@@ -499,6 +502,17 @@ class PortfolioCRUDService:
             self.db.rollback()
             logger.error("Error deleting portfolio %s: %s", port_id, e)
             return False, {"errors": [f"Error deleting Portfolio: {e}"]}
+
+    def _next_history_seq(self, portfolio_id: str, date_str: str, time_str: str) -> str:
+        """Return the next sequence number for a history composite key."""
+        count = self.db.execute(
+            text(
+                "SELECT COUNT(*) FROM history "
+                "WHERE portfolio_id = :pid AND date = :dt AND time = :tm"
+            ),
+            {"pid": portfolio_id, "dt": date_str, "tm": time_str},
+        ).scalar() or 0
+        return f"{count + 1:04d}"
 
     def close(self) -> None:
         """Close database session if we created one."""
