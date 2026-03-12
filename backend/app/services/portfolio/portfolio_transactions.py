@@ -183,6 +183,11 @@ class PortfolioTransactionProcessor:
                 status="SUCC" if result[0] else "FAIL",
             )
 
+            # Flush pending changes so that new/modified positions are
+            # visible to the relationship query inside update_total_value()
+            # (SessionLocal uses autoflush=False).
+            self.db.flush()
+
             # Update portfolio total value
             portfolio.update_total_value()
             portfolio.last_user = user
