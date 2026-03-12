@@ -91,6 +91,7 @@ class HistoryLoader:
         Stops if error count exceeds max_errors (WS-ERROR-COUNT > 100).
         """
         self._stats = LoadStatistics(start_time=datetime.now())
+        self._pending_written = 0
         commit_counter = 0
 
         for txn in transactions:
@@ -108,7 +109,7 @@ class HistoryLoader:
             # Load to history (mirrors 2200-LOAD-TO-DB2)
             success = self._load_record(txn)
             if success:
-                self._stats.records_written += 1
+                self._pending_written += 1
 
             # Check commit threshold (mirrors 2300-CHECK-COMMIT)
             commit_counter += 1
@@ -228,16 +229,28 @@ class HistoryLoader:
 
         Mirrors HISTLD00.cbl 2300-CHECK-COMMIT / 3100-FINAL-COMMIT
         which executes COMMIT WORK and updates the checkpoint.
+        Only confirms pending records as written on successful commit;
+        on failure, rolls back and adjusts counters accordingly.
         """
         if self._db:
             try:
                 self._db.commit()
+                self._stats.records_written += self._pending_written
                 self._stats.commit_count += 1
                 logger.debug(
                     "Committed batch: records_written=%d",
                     self._stats.records_written,
                 )
             except Exception as e:
-                logger.error("Commit failed, rolling back: %s", e)
+                logger.error(
+                    "Commit failed, rolling back %d pending records: %s",
+                    self._pending_written,
+                    e,
+                )
                 self._db.rollback()
-                self._stats.error_count += 1
+                self._stats.error_count += self._pending_written
+            self._pending_written = 0
+        else:
+            # No DB session - all pending records count as written
+            self._stats.records_written += self._pending_written
+            self._pending_written = 0
