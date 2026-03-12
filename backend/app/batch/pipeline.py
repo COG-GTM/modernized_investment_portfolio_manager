@@ -147,9 +147,12 @@ class BatchPipeline:
 
         result.end_time = datetime.now()
 
-        # Complete checkpoint
+        # Update checkpoint based on outcome
         if self._checkpoint_mgr:
-            self._checkpoint_mgr.complete(self._program_id, self._run_date)
+            if result.overall_return_code <= ReturnCode.WARNING:
+                self._checkpoint_mgr.complete(self._program_id, self._run_date)
+            else:
+                self._checkpoint_mgr.fail(self._program_id, self._run_date)
 
         # Final summary
         completion = self._sequencer.check_completion()
@@ -239,7 +242,10 @@ class BatchPipeline:
 
         result.end_time = datetime.now()
         if self._checkpoint_mgr:
-            self._checkpoint_mgr.complete(self._program_id, self._run_date)
+            if result.overall_return_code <= ReturnCode.WARNING:
+                self._checkpoint_mgr.complete(self._program_id, self._run_date)
+            else:
+                self._checkpoint_mgr.fail(self._program_id, self._run_date)
 
         return result
 

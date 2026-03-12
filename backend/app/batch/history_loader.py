@@ -172,7 +172,7 @@ class HistoryLoader:
                 "portfolio_id": portfolio_id,
                 "date": now.strftime("%Y%m%d"),
                 "time": now.strftime("%H%M%S%f")[:8],
-                "seq_no": str(txn.get("sequence_no", "0001"))[:4].zfill(4),
+                "seq_no": str(txn.get("sequence_no", "0001"))[-4:].zfill(4),
                 "record_type": "TR",  # Transaction history record
                 "action_code": "A",   # Add action
                 "before_image": None,
