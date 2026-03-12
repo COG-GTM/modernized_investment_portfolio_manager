@@ -177,12 +177,12 @@ class ErrorProcessor:
         error_msg = ErrorMessage(
             err_date=now.strftime("%Y-%m-%d"),
             err_time=now.strftime("%H:%M:%S"),
-            err_program=error.program or self.program_id,
-            err_category=error.category,
-            err_code=error.error_code,
+            err_program=(error.program or self.program_id)[:8],
+            err_category=error.category[:2],
+            err_code=error.error_code[:4],
             err_severity=error.severity,
-            err_text=str(error),
-            err_details=error.details,
+            err_text=str(error)[:80],
+            err_details=error.details[:256],
         )
 
         # 2100-WRITE-LOG equivalent
