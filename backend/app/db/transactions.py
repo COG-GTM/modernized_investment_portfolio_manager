@@ -15,7 +15,7 @@ operations with the same semantics and statistics tracking.
 """
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
@@ -52,6 +52,7 @@ class TransactionManager:
         self._commit_count: int = 0
         self._rollback_count: int = 0
         self._savepoint_count: int = 0
+        self._savepoints: dict[str, Any] = {}
 
     def initialize(self) -> int:
         """Initialize commit controller (mirrors 1000-INITIALIZE).
@@ -62,6 +63,7 @@ class TransactionManager:
         self._commit_count = 0
         self._rollback_count = 0
         self._savepoint_count = 0
+        self._savepoints = {}
         return 0
 
     def commit(self, records_processed: int = 0, force: bool = False) -> int:
@@ -116,7 +118,8 @@ class TransactionManager:
             0 on success, 8 on failure.
         """
         try:
-            self._session.begin_nested()
+            nested = self._session.begin_nested()
+            self._savepoints[name] = nested
             self._savepoint_count += 1
             logger.debug("Savepoint '%s' created.", name)
             return 0
@@ -134,7 +137,11 @@ class TransactionManager:
             0 on success, 8 on failure.
         """
         try:
-            self._session.rollback()
+            if name in self._savepoints:
+                self._savepoints[name].rollback()
+                del self._savepoints[name]
+            else:
+                self._session.rollback()
             self._rollback_count += 1
             logger.debug("Rolled back to savepoint '%s'.", name)
             return 0

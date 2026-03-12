@@ -131,7 +131,7 @@ class CheckpointControl(BaseModel):
 
     def should_commit(self) -> bool:
         """Check if a commit should be issued based on records processed."""
-        return self.ck_records_proc > 0 and (self.ck_records_proc % self.ck_commit_freq == 0)
+        return self.ck_commit_freq > 0 and self.ck_records_proc > 0 and (self.ck_records_proc % self.ck_commit_freq == 0)
 
     def has_exceeded_errors(self) -> bool:
         """Check if the error threshold has been exceeded."""
