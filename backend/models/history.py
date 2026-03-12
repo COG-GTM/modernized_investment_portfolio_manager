@@ -26,8 +26,10 @@ class History(Base):
     
     __table_args__ = (
         ForeignKeyConstraint(
-            ['portfolio_id'], 
-            ['portfolios.port_id']
+            ['portfolio_id'],
+            ['portfolios.port_id'],
+            deferrable=True,
+            initially='DEFERRED',
         ),
         Index('idx_history_portfolio_id', 'portfolio_id'),
         Index('idx_history_date', 'date'),
