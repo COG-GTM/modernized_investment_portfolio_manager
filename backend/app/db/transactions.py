@@ -140,10 +140,11 @@ class TransactionManager:
             if name in self._savepoints:
                 self._savepoints[name].rollback()
                 del self._savepoints[name]
+                self._rollback_count += 1
+                logger.debug("Rolled back to savepoint '%s'.", name)
             else:
-                self._session.rollback()
-            self._rollback_count += 1
-            logger.debug("Rolled back to savepoint '%s'.", name)
+                logger.error("Savepoint '%s' not found; no rollback performed.", name)
+                return 8
             return 0
         except Exception as exc:
             logger.error("Savepoint restore failed: %s", exc)
