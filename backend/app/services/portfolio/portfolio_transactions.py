@@ -276,11 +276,16 @@ class PortfolioTransactionProcessor:
         if not quantity or quantity <= 0:
             return False, {"error": "Positive quantity required for buy transaction"}
 
-        # Find or create position
+        # Find or create position.
+        # The COBOL program maintained a single position record per
+        # portfolio/investment pair (PORT-ID + INVEST-ID as composite key).
+        # First look for any existing active position regardless of date,
+        # then fall back to creating a new one with today's date.  This
+        # keeps buy and sell consistent — both operate on the same position.
         position = self.db.query(Position).filter(
             Position.portfolio_id == portfolio.port_id,
             Position.investment_id == investment_id,
-            Position.date == date.today(),
+            Position.status == "A",
         ).first()
 
         if not position:

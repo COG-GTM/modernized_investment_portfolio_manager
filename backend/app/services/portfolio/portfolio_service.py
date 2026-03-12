@@ -438,9 +438,22 @@ class PortfolioCRUDService:
             # ORM cascade that would delete it along with the portfolio.
             # This mirrors COBOL 2300-WRITE-AUDIT which wrote the audit trail
             # after the DELETE was successful.
+            #
+            # We temporarily disable FK enforcement because the History table
+            # has a ForeignKeyConstraint on portfolio_id -> portfolios.port_id,
+            # and the portfolio has already been deleted. The audit record
+            # intentionally references the now-deleted portfolio as a permanent
+            # deletion log. For PostgreSQL, use SET CONSTRAINTS ... DEFERRED.
             now = datetime.now()
             date_str = now.strftime("%Y%m%d")
             time_str = now.strftime("%H%M%S%f")[:8]
+
+            dialect = self.db.bind.dialect.name if self.db.bind else "sqlite"
+            if dialect == "sqlite":
+                self.db.execute(text("PRAGMA foreign_keys = OFF"))
+            elif dialect == "postgresql":
+                self.db.execute(text("SET CONSTRAINTS ALL DEFERRED"))
+
             self.db.execute(
                 text(
                     "INSERT INTO history (portfolio_id, date, time, seq_no, "
@@ -462,6 +475,10 @@ class PortfolioCRUDService:
                     "pu": user,
                 },
             )
+
+            if dialect == "sqlite":
+                self.db.execute(text("PRAGMA foreign_keys = ON"))
+
             self.db.commit()
 
             logger.info("Portfolio deleted: %s (reason: %s)", port_id, reason_code)
