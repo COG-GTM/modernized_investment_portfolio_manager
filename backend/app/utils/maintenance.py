@@ -253,15 +253,19 @@ class MaintenanceService:
         result = MaintenanceResult(FUNCTION_REORG)
 
         try:
-            # For SQLite: VACUUM to reclaim space and defragment
-            # For PostgreSQL: would use VACUUM ANALYZE
-            self.db.execute(text("VACUUM"))
-            self.db.commit()
+            # VACUUM must run outside a transaction.  Use a raw connection
+            # with AUTOCOMMIT isolation level so it is not wrapped in a
+            # transaction block (both SQLite and PostgreSQL require this).
+            engine = self.db.get_bind()
+            with engine.connect().execution_options(
+                isolation_level="AUTOCOMMIT"
+            ) as conn:
+                conn.execute(text("VACUUM"))
+
             result.records_written = 1
             logger.info("Reorg process complete. Database optimized.")
 
         except Exception as e:
-            self.db.rollback()
             result.add_error(f"Reorg process failed: {e}")
 
         return result.finalize()

@@ -488,6 +488,14 @@ class PortfolioCRUDService:
             }
 
         except Exception as e:
+            # Re-enable foreign keys before rollback since PRAGMA is
+            # connection-level and is NOT reverted by ROLLBACK.
+            try:
+                dialect = self.db.bind.dialect.name if self.db.bind else "sqlite"
+                if dialect == "sqlite":
+                    self.db.execute(text("PRAGMA foreign_keys = ON"))
+            except Exception:
+                pass
             self.db.rollback()
             logger.error("Error deleting portfolio %s: %s", port_id, e)
             return False, {"errors": [f"Error deleting Portfolio: {e}"]}
