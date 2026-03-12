@@ -168,11 +168,17 @@ class HistoryLoader:
             portfolio_id = str(txn.get("portfolio_id", ""))
             now = datetime.now()
 
+            # Key fields derived from transaction data for deterministic
+            # duplicate detection across batch runs (mirrors VSAM key structure).
+            # Falls back to current timestamp only if transaction lacks these fields.
+            txn_date = str(txn.get("date", now.strftime("%Y%m%d")))
+            txn_time = str(txn.get("time", now.strftime("%H%M%S%f")[:8]))
+
             # Build the history record (maps TH-* to PH-* fields)
             history_data = {
                 "portfolio_id": portfolio_id,
-                "date": now.strftime("%Y%m%d"),
-                "time": now.strftime("%H%M%S%f")[:8],
+                "date": txn_date,
+                "time": txn_time,
                 "seq_no": str(txn.get("sequence_no", "0001"))[-4:].zfill(4),
                 "record_type": "TR",  # Transaction history record
                 "action_code": "A",   # Add action

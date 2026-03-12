@@ -301,24 +301,37 @@ class CheckpointManager:
         try:
             from models.database import Base
 
-            # Use raw SQL to store checkpoint in a batch_checkpoints table
-            self._db.execute(
-                Base.metadata.tables.get("batch_checkpoints", _create_checkpoint_table(Base))
-                .insert()
-                .prefix_with("OR REPLACE")
+            table = Base.metadata.tables.get(
+                "batch_checkpoints", _create_checkpoint_table(Base)
+            )
+            values = {
+                "program_id": ckpt.program_id,
+                "run_date": ckpt.run_date,
+                "checkpoint_data": ckpt.to_json(),
+                "updated_at": datetime.now(),
+            }
+
+            # Dialect-agnostic upsert: try update first, insert if no rows matched
+            result = self._db.execute(
+                table.update()
+                .where(
+                    (table.c.program_id == ckpt.program_id)
+                    & (table.c.run_date == ckpt.run_date)
+                )
                 .values(
-                    program_id=ckpt.program_id,
-                    run_date=ckpt.run_date,
-                    checkpoint_data=ckpt.to_json(),
-                    updated_at=datetime.now(),
+                    checkpoint_data=values["checkpoint_data"],
+                    updated_at=values["updated_at"],
                 )
             )
+            if result.rowcount == 0:
+                self._db.execute(table.insert().values(**values))
             self._db.commit()
-        except Exception:
+        except Exception as e:
             # If the table doesn't exist yet, store in memory only
             logger.debug(
-                "Checkpoint stored in memory (DB table not available): program=%s",
+                "Checkpoint stored in memory (DB table not available): program=%s error=%s",
                 ckpt.program_id,
+                e,
             )
 
     def _load_from_db(self, program_id: str, run_date: str) -> Optional[CheckpointData]:
