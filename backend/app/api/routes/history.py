@@ -142,15 +142,25 @@ def _fetch_history_page(
 
     # Fetch page — replaces CURSMGR array fetch (WS-MAX-ROWS at a time)
     # ORDER BY TRANS_DATE DESC matches COBOL: ORDER BY TRANS_DATE DESC
-    transactions = (
+    # When cursor-based pagination is active, offset is 0 because the
+    # cursor filter already handles positioning.
+    effective_offset = 0 if cursor else offset
+
+    # Fetch limit+1 to detect if more records exist (for cursor pagination)
+    fetch_limit = limit + 1 if cursor else limit
+    rows = (
         query
         .order_by(Transaction.date.desc(), Transaction.sequence_no.asc())
-        .offset(offset)
-        .limit(limit)
+        .offset(effective_offset)
+        .limit(fetch_limit)
         .all()
     )
 
-    return transactions, total_count
+    # Determine if there are more records beyond this page
+    has_more = len(rows) > limit if cursor else None
+    transactions = rows[:limit] if cursor and has_more else rows
+
+    return transactions, total_count, has_more
 
 
 # ---------------------------------------------------------------------------
@@ -209,7 +219,7 @@ async def get_transaction_history(
 
     # Fetch history page — replaces CURSMGR array fetch
     try:
-        transactions, total_count = _fetch_history_page(
+        transactions, total_count, has_more = _fetch_history_page(
             db=db,
             portfolio_id=portfolio_id,
             offset=pagination.offset,
@@ -246,9 +256,18 @@ async def get_transaction_history(
         )
 
     # Pagination metadata — replaces COBOL WS-MORE-HISTORY flag
-    total_pages = math.ceil(total_count / pagination.per_page) if pagination.per_page > 0 else 0
-    has_next = pagination.page < total_pages
-    has_previous = pagination.page > 1
+    # For cursor-based pagination, use has_more from the fetch (limit+1 trick).
+    # For offset-based pagination, use page-based arithmetic.
+    if pagination.cursor:
+        # Cursor mode: has_more from fetch, has_previous always true (cursor implies prior records)
+        has_next = bool(has_more)
+        has_previous = True  # a cursor implies there were previous records
+        total_pages = 0  # not meaningful for cursor pagination
+    else:
+        # Offset mode: standard page-based calculations
+        total_pages = math.ceil(total_count / pagination.per_page) if pagination.per_page > 0 else 0
+        has_next = pagination.page < total_pages
+        has_previous = pagination.page > 1
 
     # Build cursors for cursor-based pagination
     next_cursor = None
