@@ -89,7 +89,7 @@ class AuditProcessor:
             now = datetime.now(timezone.utc)
 
             entry = AuditLogEntry(
-                aud_timestamp=now.isoformat(),
+                aud_timestamp=now.strftime("%Y-%m-%d-%H.%M.%S.%f")[:26],
                 aud_system_id=self.system_id,
                 aud_user_id=user_id,
                 aud_program=self.program,

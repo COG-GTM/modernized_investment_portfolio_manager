@@ -13,7 +13,7 @@ COBOL structure: TRANSACTION-RECORD (01 level)
 from decimal import Decimal
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, validator
 
 
 class TransactionRecord(BaseModel):
@@ -90,14 +90,14 @@ class TransactionRecord(BaseModel):
         description="TRN-PROCESS-USER: Processing user ID - PIC X(08)"
     )
 
-    @field_validator("trn_date")
+    @validator("trn_date")
     @classmethod
     def validate_date_format(cls, v: str) -> str:
         if v and len(v) != 8:
             raise ValueError("Transaction date must be 8 characters (YYYYMMDD)")
         return v
 
-    @field_validator("trn_time")
+    @validator("trn_time")
     @classmethod
     def validate_time_format(cls, v: str) -> str:
         if v and len(v) != 6:

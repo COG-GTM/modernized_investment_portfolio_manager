@@ -12,23 +12,23 @@ from app.models.db2_procedure import DB2Procedure, SQL_STATUS_CODES
 class TestInquiryCommon:
     def test_default_values(self) -> None:
         inq = InquiryCommon()
-        assert inq.inq_function == "MENU"
-        assert inq.inq_account_no == ""
-        assert inq.inq_response_code == 0
+        assert inq.inqcom_function == "MENU"
+        assert inq.inqcom_account_no == ""
+        assert inq.inqcom_response_code == 0
 
     def test_all_function_values(self) -> None:
         for func in ["MENU", "INQP", "INQH", "EXIT"]:
-            inq = InquiryCommon(inq_function=func)
-            assert inq.inq_function == func
+            inq = InquiryCommon(inqcom_function=func)
+            assert inq.inqcom_function == func
 
     def test_invalid_function(self) -> None:
         with pytest.raises(ValidationError):
-            InquiryCommon(inq_function="XXXX")
+            InquiryCommon(inqcom_function="XXXX")
 
 
 class TestDB2Request:
-    def test_default_values(self) -> None:
-        req = DB2Request()
+    def test_with_required_fields(self) -> None:
+        req = DB2Request(db2_request_type="C")
         assert req.db2_request_type == "C"
         assert req.db2_response_code == 0
 

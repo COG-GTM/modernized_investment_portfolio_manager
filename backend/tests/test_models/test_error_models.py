@@ -66,22 +66,22 @@ class TestErrorMessage:
 class TestReturnCode:
     def test_default_values(self) -> None:
         rc = ReturnCode()
-        assert rc.rtc_current_code == 0
-        assert rc.rtc_highest_code == 0
+        assert rc.rc_current_code == 0
+        assert rc.rc_highest_code == 0
 
     def test_set_code(self) -> None:
         rc = ReturnCode()
         rc.set_code(8)
-        assert rc.rtc_current_code == 8
-        assert rc.rtc_highest_code == 8
+        assert rc.rc_current_code == 8
+        assert rc.rc_highest_code == 8
 
     def test_set_code_tracks_highest(self) -> None:
         rc = ReturnCode()
         rc.set_code(4)
         rc.set_code(12)
         rc.set_code(8)
-        assert rc.rtc_current_code == 8
-        assert rc.rtc_highest_code == 12
+        assert rc.rc_current_code == 8
+        assert rc.rc_highest_code == 12
 
     def test_get_code(self) -> None:
         rc = ReturnCode()
@@ -91,34 +91,35 @@ class TestReturnCode:
     def test_initialize(self) -> None:
         rc = ReturnCode()
         rc.set_code(12)
-        rc.initialize()
-        assert rc.rtc_current_code == 0
-        assert rc.rtc_highest_code == 0
+        rc.initialize("TRNVAL00")
+        assert rc.rc_current_code == 0
+        assert rc.rc_highest_code == 0
+        assert rc.rc_program_id == "TRNVAL00"
 
 
 class TestReturnHandling:
     def test_severity_properties(self) -> None:
-        rh = ReturnHandling(rh_return_code=0)
+        rh = ReturnHandling(return_code=0)
         assert rh.is_success is True
         assert rh.is_warning is False
 
-        rh2 = ReturnHandling(rh_return_code=4)
+        rh2 = ReturnHandling(return_code=4)
         assert rh2.is_warning is True
         assert rh2.is_error is False
 
-        rh3 = ReturnHandling(rh_return_code=8)
+        rh3 = ReturnHandling(return_code=8)
         assert rh3.is_error is True
 
-        rh4 = ReturnHandling(rh_return_code=12)
+        rh4 = ReturnHandling(return_code=12)
         assert rh4.is_severe is True
 
-        rh5 = ReturnHandling(rh_return_code=16)
+        rh5 = ReturnHandling(return_code=16)
         assert rh5.is_critical is True
 
 
 class TestReturnActions:
     def test_retry_logic(self) -> None:
-        ra = ReturnActions(max_retries=3, retry_count=0)
+        ra = ReturnActions(action_flag="R", max_retries=3, retry_count=0)
         assert ra.should_retry() is True
         ra.increment_retry()
         assert ra.retry_count == 1
@@ -128,13 +129,14 @@ class TestReturnActions:
         assert ra.retry_count == 3
         assert ra.should_retry() is False
 
-    def test_reset(self) -> None:
-        ra = ReturnActions(max_retries=3, retry_count=2)
-        ra.reset()
-        assert ra.retry_count == 0
+    def test_default_action_is_continue(self) -> None:
+        ra = ReturnActions(max_retries=3, retry_count=0)
+        assert ra.should_retry() is False
 
 
 class TestStandardErrorCodes:
     def test_standard_codes_exist(self) -> None:
-        assert STD_ERROR_CODES.e001 == "E001"
-        assert STD_ERROR_CODES.e010 == "E010"
+        assert STD_ERROR_CODES.invalid_data == "E001"
+        assert STD_ERROR_CODES.not_found == "E002"
+        assert STD_ERROR_CODES.duplicate == "E003"
+        assert STD_ERROR_CODES.timeout == "E010"

@@ -12,7 +12,7 @@ COBOL structure: HISTORY-RECORD (01 level)
 
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, validator
 
 
 class HistoryRecord(BaseModel):
@@ -78,14 +78,14 @@ class HistoryRecord(BaseModel):
         description="HIST-PROCESS-USER: Processing user ID - PIC X(08)"
     )
 
-    @field_validator("hist_date")
+    @validator("hist_date")
     @classmethod
     def validate_date_format(cls, v: str) -> str:
         if v and len(v) != 8:
             raise ValueError("History date must be 8 characters (YYYYMMDD)")
         return v
 
-    @field_validator("hist_time")
+    @validator("hist_time")
     @classmethod
     def validate_time_format(cls, v: str) -> str:
         if v and len(v) != 6:

@@ -9,70 +9,97 @@ from app.models.checkpoint_restart import CheckpointControl, CheckpointRecord, F
 
 
 class TestBatchControlRecord:
-    def test_default_values(self) -> None:
-        bcr = BatchControlRecord()
-        assert bcr.bch_status == "W"
-        assert bcr.bch_return_code == 0
-        assert bcr.bch_prereq_count == 0
+    def test_with_required_fields(self) -> None:
+        bcr = BatchControlRecord(
+            bct_job_name="TRNVAL00",
+            bct_process_date="20240320",
+            bct_sequence_no=1,
+        )
+        assert bcr.bct_status == "R"
+        assert bcr.bct_return_code == 0
+        assert bcr.bct_prereq_count == 0
 
     def test_prerequisites_met_empty(self) -> None:
-        bcr = BatchControlRecord(bch_prereq_count=0, bch_prereq_jobs=[])
-        assert bcr.are_prerequisites_met() is True
+        bcr = BatchControlRecord(
+            bct_job_name="TRNVAL00",
+            bct_process_date="20240320",
+            bct_sequence_no=1,
+            bct_prereq_count=0,
+            bct_prereq_jobs=[],
+        )
+        assert bcr.are_prerequisites_met({}) is True
 
     def test_prerequisites_met_all_zero(self) -> None:
         jobs = [
             PrerequisiteJob(prereq_name="JOB1", prereq_seq=1, prereq_rc=0),
             PrerequisiteJob(prereq_name="JOB2", prereq_seq=2, prereq_rc=0),
         ]
-        bcr = BatchControlRecord(bch_prereq_count=2, bch_prereq_jobs=jobs)
-        assert bcr.are_prerequisites_met() is True
+        bcr = BatchControlRecord(
+            bct_job_name="TRNVAL00",
+            bct_process_date="20240320",
+            bct_sequence_no=1,
+            bct_prereq_count=2,
+            bct_prereq_jobs=jobs,
+        )
+        assert bcr.are_prerequisites_met({"JOB1": 0, "JOB2": 0}) is True
 
     def test_prerequisites_not_met(self) -> None:
         jobs = [
             PrerequisiteJob(prereq_name="JOB1", prereq_seq=1, prereq_rc=0),
-            PrerequisiteJob(prereq_name="JOB2", prereq_seq=2, prereq_rc=8),
+            PrerequisiteJob(prereq_name="JOB2", prereq_seq=2, prereq_rc=0),
         ]
-        bcr = BatchControlRecord(bch_prereq_count=2, bch_prereq_jobs=jobs)
-        assert bcr.are_prerequisites_met() is False
+        bcr = BatchControlRecord(
+            bct_job_name="TRNVAL00",
+            bct_process_date="20240320",
+            bct_sequence_no=1,
+            bct_prereq_count=2,
+            bct_prereq_jobs=jobs,
+        )
+        assert bcr.are_prerequisites_met({"JOB1": 0, "JOB2": 8}) is False
 
     def test_all_status_values(self) -> None:
         for status in ["R", "A", "W", "D", "E"]:
-            bcr = BatchControlRecord(bch_status=status)
-            assert bcr.bch_status == status
+            bcr = BatchControlRecord(
+                bct_job_name="TRNVAL00",
+                bct_process_date="20240320",
+                bct_sequence_no=1,
+                bct_status=status,
+            )
+            assert bcr.bct_status == status
 
 
 class TestBatchConstants:
-    def test_module_constant(self) -> None:
-        assert BATCH_CONSTANTS.bct_status_ready == "R"
-        assert BATCH_CONSTANTS.bct_status_active == "A"
-        assert BATCH_CONSTANTS.bct_status_waiting == "W"
-        assert BATCH_CONSTANTS.bct_status_done == "D"
-        assert BATCH_CONSTANTS.bct_status_error == "E"
+    def test_module_constant_statuses(self) -> None:
+        assert BATCH_CONSTANTS.stat_ready == "R"
+        assert BATCH_CONSTANTS.stat_active == "A"
+        assert BATCH_CONSTANTS.stat_waiting == "W"
+        assert BATCH_CONSTANTS.stat_done == "D"
+        assert BATCH_CONSTANTS.stat_error == "E"
 
     def test_return_codes(self) -> None:
-        assert BATCH_CONSTANTS.bct_rc_success == 0
-        assert BATCH_CONSTANTS.bct_rc_warning == 4
-        assert BATCH_CONSTANTS.bct_rc_error == 8
-        assert BATCH_CONSTANTS.bct_rc_severe == 12
-        assert BATCH_CONSTANTS.bct_rc_critical == 16
+        assert BATCH_CONSTANTS.rc_success == 0
+        assert BATCH_CONSTANTS.rc_warning == 4
+        assert BATCH_CONSTANTS.rc_error == 8
+        assert BATCH_CONSTANTS.rc_severe == 12
+        assert BATCH_CONSTANTS.rc_critical == 16
 
     def test_control_values(self) -> None:
-        assert BATCH_CONSTANTS.bct_max_prereq == 10
-        assert BATCH_CONSTANTS.bct_max_restarts == 3
-        assert BATCH_CONSTANTS.bct_wait_interval == 300
-        assert BATCH_CONSTANTS.bct_max_wait_time == 3600
+        assert BATCH_CONSTANTS.max_prereq == 10
+        assert BATCH_CONSTANTS.max_restarts == 3
+        assert BATCH_CONSTANTS.wait_interval == 300
+        assert BATCH_CONSTANTS.max_wait_time == 3600
 
 
 class TestProcessSequenceRecord:
-    def test_default_values(self) -> None:
-        psr = ProcessSequenceRecord()
-        assert psr.prc_restart == "Y"
-        assert psr.prc_dep_count == 0
+    def test_with_required_fields(self) -> None:
+        psr = ProcessSequenceRecord(psr_process_id="TRNVAL00")
+        assert psr.psr_restart == "Y"
+        assert psr.psr_dep_count == 0
 
     def test_is_restartable(self) -> None:
-        psr = ProcessSequenceRecord(prc_restart="Y")
+        psr = ProcessSequenceRecord(psr_process_id="TRNVAL00", psr_restart="Y")
         assert psr.is_restartable is True
-        psr2 = ProcessSequenceRecord(prc_restart="N")
+        psr2 = ProcessSequenceRecord(psr_process_id="TRNVAL00", psr_restart="N")
         assert psr2.is_restartable is False
 
     def test_standard_sequences(self) -> None:
@@ -82,41 +109,41 @@ class TestProcessSequenceRecord:
 
 
 class TestCheckpointControl:
-    def test_default_values(self) -> None:
-        ck = CheckpointControl()
+    def test_with_required_fields(self) -> None:
+        ck = CheckpointControl(ck_program_id="TRNVAL00")
         assert ck.ck_commit_freq == 1000
         assert ck.ck_max_errors == 100
         assert ck.ck_max_restarts == 3
         assert ck.ck_restart_mode == "N"
 
     def test_should_commit(self) -> None:
-        ck = CheckpointControl(ck_commit_freq=100, ck_records_proc=100)
+        ck = CheckpointControl(ck_program_id="TRNVAL00", ck_commit_freq=100, ck_records_proc=100)
         assert ck.should_commit() is True
-        ck2 = CheckpointControl(ck_commit_freq=100, ck_records_proc=50)
+        ck2 = CheckpointControl(ck_program_id="TRNVAL00", ck_commit_freq=100, ck_records_proc=50)
         assert ck2.should_commit() is False
 
     def test_has_exceeded_errors(self) -> None:
-        ck = CheckpointControl(ck_max_errors=10, ck_records_error=10)
+        ck = CheckpointControl(ck_program_id="TRNVAL00", ck_max_errors=10, ck_records_error=10)
         assert ck.has_exceeded_errors() is True
-        ck2 = CheckpointControl(ck_max_errors=10, ck_records_error=5)
+        ck2 = CheckpointControl(ck_program_id="TRNVAL00", ck_max_errors=10, ck_records_error=5)
         assert ck2.has_exceeded_errors() is False
 
     def test_can_restart(self) -> None:
-        ck = CheckpointControl(ck_max_restarts=3, ck_restart_count=2)
+        ck = CheckpointControl(ck_program_id="TRNVAL00", ck_max_restarts=3, ck_restart_count=2)
         assert ck.can_restart() is True
-        ck2 = CheckpointControl(ck_max_restarts=3, ck_restart_count=3)
+        ck2 = CheckpointControl(ck_program_id="TRNVAL00", ck_max_restarts=3, ck_restart_count=3)
         assert ck2.can_restart() is False
 
     def test_file_statuses_list(self) -> None:
-        ck = CheckpointControl()
+        ck = CheckpointControl(ck_program_id="TRNVAL00")
         assert len(ck.ck_file_statuses) == 5
         for fs in ck.ck_file_statuses:
             assert isinstance(fs, FileStatus)
 
 
 class TestCheckpointRecord:
-    def test_default_values(self) -> None:
-        cr = CheckpointRecord()
-        assert cr.ckr_program_id == ""
-        assert cr.ckr_run_date == ""
+    def test_with_required_fields(self) -> None:
+        cr = CheckpointRecord(ckr_program_id="TRNVAL00", ckr_run_date="20240320")
+        assert cr.ckr_program_id == "TRNVAL00"
+        assert cr.ckr_run_date == "20240320"
         assert cr.ckr_data == ""

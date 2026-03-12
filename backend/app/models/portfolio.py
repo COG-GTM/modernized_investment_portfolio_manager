@@ -15,7 +15,7 @@ COBOL structure: PORT-RECORD (01 level)
 from decimal import Decimal
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, validator
 
 
 class Portfolio(BaseModel):
@@ -87,14 +87,14 @@ class Portfolio(BaseModel):
         description="PORT-LAST-TRANS: Last transaction date - PIC 9(8)"
     )
 
-    @field_validator("port_account_no")
+    @validator("port_account_no")
     @classmethod
     def validate_account_no(cls, v: str) -> str:
         if v and len(v) != 10:
             raise ValueError("Account number must be exactly 10 characters")
         return v
 
-    @field_validator("port_id")
+    @validator("port_id")
     @classmethod
     def validate_port_id(cls, v: str) -> str:
         if v and len(v) > 8:

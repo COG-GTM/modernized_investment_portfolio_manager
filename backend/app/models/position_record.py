@@ -13,7 +13,7 @@ COBOL structure: POSITION-RECORD (01 level)
 from decimal import Decimal
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, validator
 
 
 class PositionRecord(BaseModel):
@@ -75,7 +75,7 @@ class PositionRecord(BaseModel):
         description="POS-LAST-MAINT-USER: Last maintenance user ID - PIC X(08)"
     )
 
-    @field_validator("pos_date")
+    @validator("pos_date")
     @classmethod
     def validate_date_format(cls, v: str) -> str:
         if v and len(v) != 8:

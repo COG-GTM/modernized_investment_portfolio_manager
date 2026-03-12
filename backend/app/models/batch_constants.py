@@ -58,7 +58,7 @@ class BatchConstants(BaseModel):
     # BCT-PROC-NAMES: Special process names
     start_of_day: str = Field(default="STARTDAY", max_length=8, description="BCT-START-OF-DAY: PIC X(8)")
     end_of_day: str = Field(default="ENDDAY", max_length=8, description="BCT-END-OF-DAY: PIC X(8)")
-    emergency: str = Field(default="EMERGENCY", max_length=8, description="BCT-EMERGENCY: PIC X(8)")
+    emergency: str = Field(default="EMERGENC", max_length=8, description="BCT-EMERGENCY: PIC X(8)")
 
     # BCT-REC-TYPES: Control file record types
     rec_control: str = Field(default="C", max_length=1, description="BCT-REC-CONTROL: PIC X(1) VALUE 'C'")
