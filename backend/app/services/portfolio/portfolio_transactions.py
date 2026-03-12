@@ -280,6 +280,8 @@ class PortfolioTransactionProcessor:
             return False, {"error": "Investment ID required for buy transaction"}
         if not quantity or quantity <= 0:
             return False, {"error": "Positive quantity required for buy transaction"}
+        if amount is None and (price is None or quantity is None):
+            return False, {"error": "Amount or both quantity and price required for buy transaction"}
 
         # Find or create position.
         # The COBOL program maintained a single position record per
