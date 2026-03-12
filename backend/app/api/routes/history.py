@@ -130,6 +130,9 @@ def _fetch_history_page(
     if date_to:
         query = query.filter(Transaction.date <= date_to)
 
+    # Get total count for pagination metadata (before cursor filter)
+    total_count = query.count()
+
     # Cursor-based pagination — replaces PF7/PF8 scrolling
     if cursor:
         cursor_date, cursor_seq = _parse_cursor_value(cursor)
@@ -141,9 +144,6 @@ def _fetch_history_page(
                     & (Transaction.sequence_no > cursor_seq)
                 )
             )
-
-    # Get total count for pagination metadata
-    total_count = query.count()
 
     # Fetch page — replaces CURSMGR array fetch (WS-MAX-ROWS at a time)
     # ORDER BY TRANS_DATE DESC matches COBOL: ORDER BY TRANS_DATE DESC

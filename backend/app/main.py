@@ -3,10 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import psycopg
 from routers import portfolio, accounts
 
-# New CICS-migrated API modules
-from app.api.middleware.error_handler import register_exception_handlers
-from app.api.routes import health as api_health, history as api_history, portfolio as api_portfolio
-from app.api.routes.auth import router as api_auth_router
+# New CICS-migrated API sub-application (scoped to /api/v1/)
+from app.api.main import create_api_app
 
 app = FastAPI(
     title="Portfolio Management API",
@@ -23,18 +21,15 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-# Register global error handlers (migrated from ERRHNDL.cbl)
-register_exception_handlers(app)
-
-# Existing routers
+# Existing routers (unchanged — keep default FastAPI error format)
 app.include_router(portfolio.router)
 app.include_router(accounts.router)
 
-# New CICS-migrated API routers (under /api/v1/)
-app.include_router(api_auth_router)
-app.include_router(api_portfolio.router)
-app.include_router(api_history.router)
-app.include_router(api_health.router)
+# Mount the CICS-migrated API as a sub-application so its custom error
+# handlers (ERRHNDL) are scoped only to /api/v1/ routes and do not
+# change the error response format for pre-existing endpoints.
+api_v1_app = create_api_app()
+app.mount("/", api_v1_app)
 
 @app.get("/healthz")
 async def healthz():
