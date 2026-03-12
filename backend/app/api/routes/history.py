@@ -275,7 +275,11 @@ async def get_transaction_history(
     if has_next and history_entries:
         last = history_entries[-1]
         next_cursor = _build_cursor_value(last.transaction_date, last.sequence_no or "")
-    if has_previous and history_entries:
+    if not pagination.cursor and has_previous and history_entries:
+        # previous_cursor only makes sense for offset pagination.
+        # Cursor-based pagination is forward-only; the cursor filter does not
+        # support backward navigation, so emitting a previous_cursor would
+        # mislead clients into thinking they can page backward.
         first = history_entries[0]
         previous_cursor = _build_cursor_value(first.transaction_date, first.sequence_no or "")
 

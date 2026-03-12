@@ -25,12 +25,15 @@ app.add_middleware(
 app.include_router(portfolio.router)
 app.include_router(accounts.router)
 
-# Mount the CICS-migrated API as a sub-application so its custom error
-# handlers (ERRHNDL) are scoped only to /api/v1/ routes and do not
-# change the error response format for pre-existing endpoints.
-api_v1_app = create_api_app()
-app.mount("/", api_v1_app)
-
 @app.get("/healthz")
 async def healthz():
     return {"status": "ok"}
+
+# Mount the CICS-migrated API as a sub-application so its custom error
+# handlers (ERRHNDL) are scoped only to /api/v1/ routes and do not
+# change the error response format for pre-existing endpoints.
+# NOTE: This must come AFTER all main-app route definitions because
+# mount("/") matches all paths — any routes defined after it would be
+# unreachable (the mount intercepts the request first).
+api_v1_app = create_api_app()
+app.mount("/", api_v1_app)
