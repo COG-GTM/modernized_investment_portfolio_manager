@@ -61,3 +61,5 @@ Modernized version of the COBOL Legacy Benchmark Suite (CLBS), a production-grad
 - Fresh setup: `./setup_database.sh`
 - Manual seeding: `python seed_database.py`
 - Verify data: `python verify_persistence.py`
+
+<!-- Integration test: validated Devin push access 2026-04-09T00:57:07Z -->
