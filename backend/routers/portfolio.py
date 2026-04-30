@@ -44,7 +44,7 @@ async def get_portfolio(account_number: str, db: Session = Depends(get_db)):
             "symbol": pos.investment_id,
             "name": pos.investment_id,
             "shares": int(pos.quantity or 0),
-            "currentPrice": round(mv / float(pos.quantity or 1), 2),
+            "currentPrice": round(mv / float(pos.quantity), 2) if pos.quantity else 0.0,
             "marketValue": mv,
             "gainLoss": round(gl, 2),
             "gainLossPercent": round(gl_pct, 2),
@@ -61,7 +61,7 @@ async def get_portfolio(account_number: str, db: Session = Depends(get_db)):
         "totalGainLoss": round(total_gain_loss, 2),
         "totalGainLossPercent": round(total_gl_pct, 2),
         "holdings": holdings,
-        "lastUpdated": portfolio.last_maint.strftime("%B %d, %Y, %I:%M %p") if portfolio.last_maint else None,
+        "lastUpdated": portfolio.last_maint.strftime("%B %d, %Y") if portfolio.last_maint else "N/A",
     }
 
 
