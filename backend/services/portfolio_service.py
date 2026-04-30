@@ -1,8 +1,12 @@
+import logging
+
 from sqlalchemy.orm import Session
 from models import Portfolio, Position, Transaction, History
 from typing import Dict, List, Optional
 from decimal import Decimal
 from datetime import datetime, date
+
+logger = logging.getLogger(__name__)
 
 class PortfolioService:
     
@@ -46,8 +50,9 @@ class PortfolioService:
             
         except Exception as e:
             self.db.rollback()
+            logger.error(f"Transaction processing failed: {str(e)}", exc_info=True)
             transaction.transition_status('F', transaction.process_user or "SYSTEM")
-            return {"success": False, "errors": [str(e)]}
+            return {"success": False, "errors": ["An internal error occurred while processing the transaction."]}
     
     def _process_buy_sell_transaction(self, transaction: Transaction):
         position = self.db.query(Position).filter(
