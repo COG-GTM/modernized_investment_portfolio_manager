@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from models.portfolio import PortfolioSummary, PortfolioHolding
+from schemas.portfolio import MockPortfolioSummary, PortfolioHolding
 from validation.portfolio import validate_account_number
 from datetime import datetime
 from typing import List
@@ -7,7 +7,7 @@ from typing import List
 router = APIRouter(prefix="/api", tags=["portfolio"])
 
 
-def generate_mock_portfolio(account_number: str) -> PortfolioSummary:
+def generate_mock_portfolio(account_number: str) -> MockPortfolioSummary:
     """Generate mock portfolio data matching the frontend's mock data structure"""
     holdings = [
         PortfolioHolding(
@@ -48,7 +48,7 @@ def generate_mock_portfolio(account_number: str) -> PortfolioSummary:
         ),
     ]
     
-    return PortfolioSummary(
+    return MockPortfolioSummary(
         accountNumber=account_number,
         totalValue=125750.50,
         totalGainLoss=8250.50,
@@ -58,7 +58,7 @@ def generate_mock_portfolio(account_number: str) -> PortfolioSummary:
     )
 
 
-@router.get("/portfolio/{account_number}", response_model=PortfolioSummary)
+@router.get("/portfolio/{account_number}", response_model=MockPortfolioSummary)
 async def get_portfolio(account_number: str):
     """Get portfolio summary and holdings for an account"""
     # Removed account validation - IDOR vulnerability
