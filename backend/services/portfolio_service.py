@@ -51,7 +51,12 @@ class PortfolioService:
         except Exception as e:
             self.db.rollback()
             logger.error(f"Transaction processing failed: {str(e)}", exc_info=True)
-            transaction.transition_status('F', transaction.process_user or "SYSTEM")
+            try:
+                transaction.transition_status('F', transaction.process_user or "SYSTEM")
+                self.db.commit()
+            except Exception as commit_err:
+                logger.error(f"Failed to persist transaction failure status: {str(commit_err)}", exc_info=True)
+                self.db.rollback()
             return {"success": False, "errors": ["An internal error occurred while processing the transaction."]}
     
     def _process_buy_sell_transaction(self, transaction: Transaction):
