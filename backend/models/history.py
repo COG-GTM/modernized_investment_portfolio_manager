@@ -1,6 +1,6 @@
 from sqlalchemy import Column, String, DateTime, CheckConstraint, ForeignKeyConstraint, Index, Text
 from sqlalchemy.orm import relationship
-from .database import Base
+from core.db import Base
 from typing import Dict, Optional
 from datetime import datetime
 import json
