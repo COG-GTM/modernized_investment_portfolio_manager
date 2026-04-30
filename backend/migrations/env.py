@@ -17,7 +17,7 @@ if config.config_file_name is not None:
 
 config.set_main_option(
     "sqlalchemy.url",
-    os.environ.get("DATABASE_URL", "sqlite:///./portfolio.db"),
+    os.environ.get("DATABASE_URL", "sqlite:///./portfolio.db").replace("%", "%%"),
 )
 
 # add your model's MetaData object here
