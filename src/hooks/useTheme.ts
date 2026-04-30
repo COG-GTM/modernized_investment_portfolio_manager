@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useLayoutEffect, useCallback } from 'react';
 
 type Theme = 'light' | 'dark';
 
@@ -17,7 +17,7 @@ function applyTheme(theme: Theme) {
 export function useTheme() {
   const [theme, setThemeState] = useState<Theme>(getInitialTheme);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     applyTheme(theme);
   }, [theme]);
 
