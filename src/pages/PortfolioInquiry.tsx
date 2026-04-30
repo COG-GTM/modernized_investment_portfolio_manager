@@ -5,13 +5,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { ROUTES } from '../types/routes';
 import { Container, PageHeader, Card, Button, PositionCard, PortfolioSummary, Alert } from '../components';
 import { AccountInput } from '../components/AccountInput';
-import { accountFormSchema, type AccountFormData, type PortfolioSummary as PortfolioSummaryType } from '../types/account';
-import { fetchPortfolio, ApiError } from '../services/api';
+import { accountFormSchema, type AccountFormData } from '../types/account';
+import { usePortfolioQuery } from '../hooks/usePortfolioQuery';
 
 export default function PortfolioInquiry() {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [portfolioData, setPortfolioData] = useState<PortfolioSummaryType | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [searchAccount, setSearchAccount] = useState<string | null>(null);
+
+  const { data: portfolioData, error: queryError, isLoading } = usePortfolioQuery(searchAccount);
 
   const methods = useForm<AccountFormData>({
     resolver: zodResolver(accountFormSchema),
@@ -23,35 +23,22 @@ export default function PortfolioInquiry() {
 
   const { handleSubmit, formState: { isValid } } = methods;
 
-  const onSubmit = async (data: AccountFormData) => {
-    setIsSubmitting(true);
-    setError(null);
-    
-    try {
-      const portfolio = await fetchPortfolio(data.accountNumber);
-      setPortfolioData(portfolio);
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message);
-      } else {
-        setError('An unexpected error occurred. Please try again.');
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
+  const onSubmit = (data: AccountFormData) => {
+    setSearchAccount(data.accountNumber);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
-    if (event.key === 'Enter' && isValid && !isSubmitting) {
+    if (event.key === 'Enter' && isValid && !isLoading) {
       handleSubmit(onSubmit)();
     }
   };
 
   const resetForm = () => {
-    setPortfolioData(null);
-    setError(null);
+    setSearchAccount(null);
     methods.reset();
   };
+
+  const error = queryError ? (queryError as Error).message : null;
 
   if (portfolioData) {
     return (
@@ -80,7 +67,7 @@ export default function PortfolioInquiry() {
                   totalGainLoss: portfolioData.totalGainLoss,
                   totalGainLossPercent: portfolioData.totalGainLossPercent,
                   currency: 'USD',
-                  positions: portfolioData.holdings.map((holding: any) => ({
+                  positions: portfolioData.holdings.map((holding) => ({
                     portfolioId: `PF-${portfolioData.accountNumber}`,
                     investmentId: `INV-${holding.symbol}-001`,
                     symbol: holding.symbol,
@@ -103,7 +90,7 @@ export default function PortfolioInquiry() {
               <div className="space-y-4 animate-fade-in" style={{ animationDelay: '100ms' }}>
                 <h3 className="text-xl font-semibold">Holdings</h3>
                 <div className="grid gap-4">
-                  {portfolioData.holdings.map((holding: any, index: number) => (
+                  {portfolioData.holdings.map((holding, index) => (
                     <PositionCard
                       key={holding.symbol}
                       position={{
@@ -175,10 +162,10 @@ export default function PortfolioInquiry() {
                   
                   <Button 
                     type="submit" 
-                    disabled={!isValid || isSubmitting}
+                    disabled={!isValid || isLoading}
                     className="w-full"
                   >
-                    {isSubmitting ? 'Searching...' : 'View Portfolio'}
+                    {isLoading ? 'Searching...' : 'View Portfolio'}
                   </Button>
                 </form>
               </FormProvider>

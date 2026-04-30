@@ -127,13 +127,13 @@ class TestValidateAccountNumber:
         """Test account number with spaces"""
         valid, message = validate_account_number("123 456 789")
         assert valid is False
-        assert message == "Account number must contain only numeric characters"
+        assert message == "Account number must be exactly 10 digits"
     
     def test_account_number_with_dashes(self):
         """Test account number with dashes"""
         valid, message = validate_account_number("123-456-789")
         assert valid is False
-        assert message == "Account number must contain only numeric characters"
+        assert message == "Account number must be exactly 10 digits"
 
 
 class TestValidateInvestmentType:
