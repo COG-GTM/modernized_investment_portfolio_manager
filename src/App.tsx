@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Switch, Route } from 'react-router-dom';
 import { MainMenu, PortfolioInquiry, TransactionHistory } from './pages';
 import { ROUTES } from './types/routes';
 import { useGlobalNavigation } from './hooks/useGlobalNavigation';
+import { ThemeToggle } from './components';
 
 function AppContent() {
   useGlobalNavigation();
@@ -18,6 +19,7 @@ function AppContent() {
 function App() {
   return (
     <Router>
+      <ThemeToggle />
       <AppContent />
     </Router>
   )
