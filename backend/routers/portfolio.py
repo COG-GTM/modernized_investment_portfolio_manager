@@ -1,84 +1,87 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 from models.portfolio import PortfolioSummary, PortfolioHolding
-from validation.portfolio import validate_account_number
+from models.database import get_db
+from services.inquiry_service import InquiryService
 from datetime import datetime
-from typing import List
+from decimal import Decimal
 
 router = APIRouter(prefix="/api", tags=["portfolio"])
 
 
-def generate_mock_portfolio(account_number: str) -> PortfolioSummary:
-    """Generate mock portfolio data matching the frontend's mock data structure"""
-    holdings = [
-        PortfolioHolding(
-            symbol="AAPL",
-            name="Apple Inc.",
-            shares=150,
-            currentPrice=185.25,
-            marketValue=27787.50,
-            gainLoss=2287.50,
-            gainLossPercent=8.97,
-        ),
-        PortfolioHolding(
-            symbol="MSFT",
-            name="Microsoft Corporation",
-            shares=100,
-            currentPrice=378.85,
-            marketValue=37885.00,
-            gainLoss=3885.00,
-            gainLossPercent=11.42,
-        ),
-        PortfolioHolding(
-            symbol="GOOGL",
-            name="Alphabet Inc.",
-            shares=75,
-            currentPrice=142.56,
-            marketValue=10692.00,
-            gainLoss=692.00,
-            gainLossPercent=6.92,
-        ),
-        PortfolioHolding(
-            symbol="TSLA",
-            name="Tesla Inc.",
-            shares=200,
-            currentPrice=245.67,
-            marketValue=49134.00,
-            gainLoss=1386.00,
-            gainLossPercent=2.90,
-        ),
-    ]
-    
+INVESTMENT_NAMES = {
+    "AAPL": "Apple Inc.",
+    "MSFT": "Microsoft Corporation",
+    "GOOGL": "Alphabet Inc.",
+    "TSLA": "Tesla Inc.",
+    "AMZN": "Amazon.com Inc.",
+    "NVDA": "NVIDIA Corporation",
+    "META": "Meta Platforms Inc.",
+    "JPM": "JPMorgan Chase & Co.",
+    "V": "Visa Inc.",
+    "JNJ": "Johnson & Johnson",
+}
+
+
+@router.get("/portfolio/{account_number}", response_model=PortfolioSummary)
+async def get_portfolio(account_number: str, db: Session = Depends(get_db)):
+    """Get portfolio summary and holdings for an account"""
+    service = InquiryService(db)
+    result = service.get_portfolio_positions(account_number)
+
+    holdings = []
+    total_market_value = Decimal("0")
+    total_cost_basis = Decimal("0")
+
+    for pos in result.positions:
+        price = (
+            (pos.market_value / pos.quantity)
+            if pos.quantity and pos.quantity != 0
+            else Decimal("0")
+        )
+        holdings.append(
+            PortfolioHolding(
+                symbol=pos.investment_id.strip(),
+                name=INVESTMENT_NAMES.get(
+                    pos.investment_id.strip(), pos.investment_id.strip()
+                ),
+                shares=int(pos.quantity),
+                currentPrice=float(price),
+                marketValue=float(pos.market_value),
+                gainLoss=float(pos.gain_loss),
+                gainLossPercent=float(pos.gain_loss_percent),
+            )
+        )
+        total_market_value += pos.market_value
+        total_cost_basis += pos.cost_basis
+
+    total_gain_loss = total_market_value - total_cost_basis
+    total_gain_loss_pct = (
+        float((total_gain_loss / total_cost_basis) * 100)
+        if total_cost_basis != 0
+        else 0.0
+    )
+
     return PortfolioSummary(
         accountNumber=account_number,
-        totalValue=125750.50,
-        totalGainLoss=8250.50,
-        totalGainLossPercent=7.02,
+        totalValue=float(total_market_value),
+        totalGainLoss=float(total_gain_loss),
+        totalGainLossPercent=total_gain_loss_pct,
         holdings=holdings,
         lastUpdated=datetime.now().strftime("%B %d, %Y, %I:%M %p"),
     )
 
 
-@router.get("/portfolio/{account_number}", response_model=PortfolioSummary)
-async def get_portfolio(account_number: str):
-    """Get portfolio summary and holdings for an account"""
-    # Removed account validation - IDOR vulnerability
-    # is_valid, message = validate_account_number(account_number)
-    # if not is_valid:
-    #     raise HTTPException(status_code=400, detail=message)
-    
-    return generate_mock_portfolio(account_number)
-
-
 @router.get("/transactions/{account_number}")
-async def get_transactions(account_number: str):
-    """Get transaction history for an account (placeholder)"""
-    # Removed account validation - IDOR vulnerability
-    # is_valid, message = validate_account_number(account_number)
-    # if not is_valid:
-    #     raise HTTPException(status_code=400, detail=message)
-    
+async def get_transactions(account_number: str, db: Session = Depends(get_db)):
+    """Get transaction history for an account"""
+    service = InquiryService(db)
+    result = service.get_transaction_history(account_number)
+
+    transactions = [txn.model_dump() for txn in result.transactions]
+
     return {
         "accountNumber": account_number,
-        "transactions": [],
-        "message": "Transaction history endpoint - placeholder implementation"
+        "transactions": transactions,
+        "message": result.message,
     }
