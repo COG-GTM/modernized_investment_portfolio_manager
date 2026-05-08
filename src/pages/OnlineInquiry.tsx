@@ -241,9 +241,9 @@ export default function OnlineInquiry() {
                             <td className="py-3 px-2">{entry.transactionDate || 'N/A'}</td>
                             <td className="py-3 px-2">
                               <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
-                                entry.transactionType === 'BUY'
+                                entry.transactionType === 'BU'
                                   ? 'bg-green-100 text-green-800'
-                                  : entry.transactionType === 'SELL'
+                                  : entry.transactionType === 'SL'
                                   ? 'bg-red-100 text-red-800'
                                   : 'bg-gray-100 text-gray-800'
                               }`}>
