@@ -70,7 +70,7 @@ class InquiryService:
             "clientName": portfolio.client_name,
             "clientType": portfolio.client_type,
             "status": portfolio.status,
-            "totalValue": float(portfolio.total_value) if portfolio.total_value is not None else float(total_market_value),
+            "totalValue": float(portfolio.total_value) if portfolio.total_value is not None else float(total_market_value + (portfolio.cash_balance or Decimal('0.00'))),
             "totalCostBasis": float(total_cost_basis),
             "totalGainLoss": float(total_gain_loss),
             "totalGainLossPercent": float(total_gain_loss_percent),
@@ -91,7 +91,7 @@ class InquiryService:
         transactions = (
             self.db.query(Transaction)
             .filter(Transaction.portfolio_id == portfolio.port_id)
-            .order_by(Transaction.date.desc())
+            .order_by(Transaction.date.desc(), Transaction.time.desc(), Transaction.sequence_no.desc())
             .limit(limit)
             .all()
         )
