@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Link, useHistory } from 'react-router-dom';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ROUTES } from '../types/routes';
@@ -10,7 +10,6 @@ import { fetchPortfolioInquiry, fetchTransactionHistoryInquiry, ApiError } from 
 import { formatCurrency, formatNumber, getGainLossColorClass } from '../utils/format';
 
 export default function OnlineInquiry() {
-  const history = useHistory();
   const [activeTab, setActiveTab] = useState<InquiryTab>('portfolio');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [portfolioData, setPortfolioData] = useState<PortfolioInquiryResult | null>(null);
@@ -26,16 +25,6 @@ export default function OnlineInquiry() {
   });
 
   const { handleSubmit, formState: { isValid } } = methods;
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        history.push(ROUTES.MAIN_MENU);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [history]);
 
   const onSubmit = async (data: InquiryFormData) => {
     setIsSubmitting(true);
