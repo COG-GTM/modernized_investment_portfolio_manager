@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
 from models import SessionLocal
 from models.inquiry import (
@@ -74,7 +74,7 @@ async def get_portfolio_inquiry(account_number: str, db: Session = Depends(get_d
     responses={400: {"model": InquiryErrorResponse}, 404: {"model": InquiryErrorResponse}},
 )
 async def get_transaction_history(
-    account_number: str, limit: int = 10, db: Session = Depends(get_db)
+    account_number: str, limit: int = Query(default=10, ge=1, le=100), db: Session = Depends(get_db)
 ):
     """Transaction history inquiry (INQHIST equivalent)"""
     is_valid, message = validate_inquiry_account(account_number)
