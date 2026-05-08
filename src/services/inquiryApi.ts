@@ -18,7 +18,7 @@ export async function fetchPortfolioInquiry(accountNumber: string): Promise<Port
     const response = await fetch(`${API_BASE_URL}/inquiry/portfolio/${accountNumber}`);
 
     if (!response.ok) {
-      if (response.status === 400) {
+      if (response.status === 400 || response.status === 404) {
         const errorData = await response.json();
         throw new ApiError(errorData.detail || 'Invalid account number', response.status, response.statusText);
       }
@@ -43,7 +43,7 @@ export async function fetchTransactionHistoryInquiry(accountNumber: string): Pro
     const response = await fetch(`${API_BASE_URL}/inquiry/history/${accountNumber}`);
 
     if (!response.ok) {
-      if (response.status === 400) {
+      if (response.status === 400 || response.status === 404) {
         const errorData = await response.json();
         throw new ApiError(errorData.detail || 'Invalid account number', response.status, response.statusText);
       }
