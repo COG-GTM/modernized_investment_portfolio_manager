@@ -66,7 +66,7 @@ class InquiryService:
             )
 
         summary = PortfolioSummaryInfo(
-            id=portfolio.port_id,
+            portfolio_id=portfolio.port_id,
             client_name=portfolio.client_name,
             total_value=portfolio.total_value or Decimal("0"),
             cash_balance=portfolio.cash_balance or Decimal("0"),

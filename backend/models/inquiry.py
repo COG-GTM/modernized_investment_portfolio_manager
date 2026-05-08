@@ -34,7 +34,7 @@ class PositionResponse(BaseModel):
 
 
 class PortfolioSummaryInfo(BaseModel):
-    id: str
+    portfolio_id: str
     client_name: Optional[str] = None
     total_value: Decimal
     cash_balance: Decimal
