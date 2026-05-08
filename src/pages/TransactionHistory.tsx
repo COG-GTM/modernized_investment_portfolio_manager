@@ -78,6 +78,9 @@ export default function TransactionHistory() {
     };
 
     setCurrentPage(0);
+    setLoading(true);
+    setError(null);
+    setHistoryData(null);
     loadTransactions();
   }, [location.search]);
 
