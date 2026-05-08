@@ -48,7 +48,7 @@ async def get_portfolio(account_number: str, db: Session = Depends(get_db)):
                 name=INVESTMENT_NAMES.get(
                     pos.investment_id.strip(), pos.investment_id.strip()
                 ),
-                shares=int(pos.quantity),
+                shares=int(round(pos.quantity)),
                 currentPrice=float(price),
                 marketValue=float(pos.market_value),
                 gainLoss=float(pos.gain_loss),
