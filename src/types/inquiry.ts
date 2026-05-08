@@ -3,7 +3,8 @@ import { z } from 'zod';
 export const inquiryAccountSchema = z
   .string()
   .length(10, 'Account number must be exactly 10 digits')
-  .regex(/^\d+$/, 'Account number must contain only numeric characters');
+  .regex(/^\d+$/, 'Account number must contain only numeric characters')
+  .refine((val) => val !== '0000000000', 'Account number cannot be all zeros');
 
 export const inquiryFormSchema = z.object({
   accountNumber: inquiryAccountSchema,

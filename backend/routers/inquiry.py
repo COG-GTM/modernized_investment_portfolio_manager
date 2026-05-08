@@ -50,7 +50,7 @@ async def get_inquiry_menu():
     response_model=PortfolioInquiryResponse,
     responses={400: {"model": InquiryErrorResponse}, 404: {"model": InquiryErrorResponse}},
 )
-async def get_portfolio_inquiry(account_number: str, db: Session = Depends(get_db)):
+def get_portfolio_inquiry(account_number: str, db: Session = Depends(get_db)):
     """Portfolio position inquiry (INQPORT equivalent)"""
     is_valid, message = validate_inquiry_account(account_number)
     if not is_valid:
@@ -73,7 +73,7 @@ async def get_portfolio_inquiry(account_number: str, db: Session = Depends(get_d
     response_model=TransactionHistoryResponse,
     responses={400: {"model": InquiryErrorResponse}, 404: {"model": InquiryErrorResponse}},
 )
-async def get_transaction_history(
+def get_transaction_history(
     account_number: str, limit: int = Query(default=10, ge=1, le=100), db: Session = Depends(get_db)
 ):
     """Transaction history inquiry (INQHIST equivalent)"""
