@@ -29,6 +29,9 @@ async def get_portfolio(account_number: str, db: Session = Depends(get_db)):
     service = InquiryService(db)
     result = service.get_portfolio_positions(account_number)
 
+    if not result.positions and "not found" in result.message.lower():
+        raise HTTPException(status_code=404, detail=f"Portfolio not found for account {account_number}")
+
     holdings = []
     total_market_value = Decimal("0")
     total_cost_basis = Decimal("0")
