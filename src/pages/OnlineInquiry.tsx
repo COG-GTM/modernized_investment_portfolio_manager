@@ -53,6 +53,7 @@ export default function OnlineInquiry() {
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === 'Enter' && isValid && !isSubmitting) {
+      event.preventDefault();
       handleSubmit(onSubmit)();
     }
   };
