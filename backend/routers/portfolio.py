@@ -1,10 +1,36 @@
-from fastapi import APIRouter, HTTPException
-from models.portfolio import PortfolioSummary, PortfolioHolding
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from models import SessionLocal, Transaction
+from models.portfolio import (
+    PortfolioSummary,
+    PortfolioHolding,
+    PortfolioPositionData,
+    PortfolioPositionsResponse,
+    TransferRequest,
+    TransferResponse,
+)
+from services.portfolio_service import PortfolioService
 from validation.portfolio import validate_account_number
-from datetime import datetime
+from datetime import datetime, date, time as time_cls
+from decimal import Decimal
 from typing import List
+import uuid
 
 router = APIRouter(prefix="/api", tags=["portfolio"])
+
+
+def get_db():
+    """FastAPI dependency that yields a SQLAlchemy session and closes it after the request."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def _generate_sequence_no() -> str:
+    """Generate a 6-character sequence number for a Transaction primary key."""
+    return uuid.uuid4().hex[:6].upper()
 
 
 def generate_mock_portfolio(account_number: str) -> PortfolioSummary:
@@ -67,6 +93,117 @@ async def get_portfolio(account_number: str):
     #     raise HTTPException(status_code=400, detail=message)
     
     return generate_mock_portfolio(account_number)
+
+
+@router.get(
+    "/portfolio/{portfolio_id}/positions",
+    response_model=PortfolioPositionsResponse,
+)
+async def get_portfolio_positions(portfolio_id: str):
+    """Return mock position data for a portfolio.
+
+    Mock data is returned (per requirements) rather than querying the database
+    so the frontend transfer UI can be developed without seeded portfolios.
+    """
+    positions = [
+        PortfolioPositionData(
+            investment_id="AAPL",
+            quantity=150.0,
+            cost_basis=25500.00,
+            market_value=27787.50,
+            currency="USD",
+            status="A",
+        ),
+        PortfolioPositionData(
+            investment_id="MSFT",
+            quantity=100.0,
+            cost_basis=34000.00,
+            market_value=37885.00,
+            currency="USD",
+            status="A",
+        ),
+        PortfolioPositionData(
+            investment_id="GOOGL",
+            quantity=75.0,
+            cost_basis=10000.00,
+            market_value=10692.00,
+            currency="USD",
+            status="A",
+        ),
+        PortfolioPositionData(
+            investment_id="TSLA",
+            quantity=200.0,
+            cost_basis=47748.00,
+            market_value=49134.00,
+            currency="USD",
+            status="A",
+        ),
+    ]
+    return PortfolioPositionsResponse(portfolio_id=portfolio_id, positions=positions)
+
+
+@router.post("/transfer", response_model=TransferResponse)
+async def submit_transfer(request: TransferRequest, db: Session = Depends(get_db)):
+    """Submit a portfolio transfer.
+
+    Creates a Transaction record (type='TR', status='P') for the source portfolio,
+    then invokes PortfolioService.process_transaction() to move quantity (and the
+    proportional cost basis / market value) from the source position to the
+    destination position. A History audit record is written for each side.
+    """
+    if request.quantity <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be greater than zero")
+    if request.sourcePortfolioId == request.destPortfolioId:
+        raise HTTPException(
+            status_code=400,
+            detail="Source and destination portfolios must differ",
+        )
+
+    now = datetime.now()
+    sequence_no = _generate_sequence_no()
+
+    transaction = Transaction(
+        date=now.date(),
+        time=time_cls(now.hour, now.minute, now.second),
+        portfolio_id=request.sourcePortfolioId,
+        sequence_no=sequence_no,
+        investment_id=request.investmentId,
+        type="TR",
+        quantity=Decimal(str(request.quantity)),
+        price=Decimal("0.0000"),
+        amount=Decimal("0.00"),
+        currency="USD",
+        status="P",
+        process_user=request.user,
+    )
+    transaction._dest_portfolio_id = request.destPortfolioId
+    db.add(transaction)
+
+    service = PortfolioService(db)
+    result = service.process_transaction(transaction)
+
+    if not result.get("success"):
+        return TransferResponse(
+            success=False,
+            sourcePortfolioId=request.sourcePortfolioId,
+            destPortfolioId=request.destPortfolioId,
+            investmentId=request.investmentId,
+            quantity=request.quantity,
+            transactionId=sequence_no,
+            errors=result.get("errors", []),
+            message="Transfer failed",
+        )
+
+    return TransferResponse(
+        success=True,
+        sourcePortfolioId=request.sourcePortfolioId,
+        destPortfolioId=request.destPortfolioId,
+        investmentId=request.investmentId,
+        quantity=request.quantity,
+        transactionId=sequence_no,
+        errors=[],
+        message="Transfer completed successfully",
+    )
 
 
 @router.get("/transactions/{account_number}")

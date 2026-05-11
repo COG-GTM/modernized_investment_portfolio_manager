@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 
 
@@ -41,4 +41,37 @@ class ValidationErrorResponse(BaseModel):
 class TransactionResponse(BaseModel):
     accountNumber: str
     transactions: List[dict]
+    message: str
+
+
+class PortfolioPositionData(BaseModel):
+    investment_id: str
+    quantity: float
+    cost_basis: float
+    market_value: float
+    currency: str
+    status: str
+
+
+class PortfolioPositionsResponse(BaseModel):
+    portfolio_id: str
+    positions: List[PortfolioPositionData]
+
+
+class TransferRequest(BaseModel):
+    sourcePortfolioId: str
+    destPortfolioId: str
+    investmentId: str
+    quantity: float
+    user: str
+
+
+class TransferResponse(BaseModel):
+    success: bool
+    sourcePortfolioId: str
+    destPortfolioId: str
+    investmentId: str
+    quantity: float
+    transactionId: Optional[str] = None
+    errors: List[str] = []
     message: str
