@@ -42,3 +42,20 @@ class TransactionResponse(BaseModel):
     accountNumber: str
     transactions: List[dict]
     message: str
+
+
+class TransferPosition(BaseModel):
+    symbol: str
+    shares: float
+
+
+class TransferRequest(BaseModel):
+    source_account: str
+    destination_account: str
+    positions: List[TransferPosition]
+
+
+class TransferResponse(BaseModel):
+    success: bool
+    message: str
+    transfer_id: str
