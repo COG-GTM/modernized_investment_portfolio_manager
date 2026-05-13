@@ -314,3 +314,229 @@ class TestEdgeCases:
         
         valid, _ = validate_amount("-9999999999999.99")
         assert valid is True
+
+
+class TestSecurityEdgeCases:
+    """Test security edge cases including injection, XSS, unicode, and boundary inputs"""
+
+    # --- SQL Injection ---
+
+    def test_sql_injection_portfolio_id(self):
+        """Test SQL injection string rejected as portfolio ID"""
+        valid, _ = validate_portfolio_id("'; DROP TABLE--")
+        assert valid is False
+
+    def test_sql_injection_or_bypass_portfolio_id(self):
+        """Test SQL injection OR bypass rejected as portfolio ID"""
+        valid, _ = validate_portfolio_id("1' OR '1'='1")
+        assert valid is False
+
+    def test_sql_injection_account_number(self):
+        """Test SQL injection string rejected as account number"""
+        valid, _ = validate_account_number("'; DROP TABLE--")
+        assert valid is False
+
+    def test_sql_injection_or_bypass_account_number(self):
+        """Test SQL injection OR bypass rejected as account number"""
+        valid, _ = validate_account_number("1' OR '1'='1")
+        assert valid is False
+
+    def test_sql_injection_investment_type(self):
+        """Test SQL injection string rejected as investment type"""
+        valid, _ = validate_investment_type("'; DROP TABLE--")
+        assert valid is False
+
+    def test_sql_injection_or_bypass_investment_type(self):
+        """Test SQL injection OR bypass rejected as investment type"""
+        valid, _ = validate_investment_type("1' OR '1'='1")
+        assert valid is False
+
+    def test_sql_injection_amount(self):
+        """Test SQL injection string rejected as amount"""
+        valid, _ = validate_amount("'; DROP TABLE--")
+        assert valid is False
+
+    def test_sql_injection_or_bypass_amount(self):
+        """Test SQL injection OR bypass rejected as amount"""
+        valid, _ = validate_amount("1' OR '1'='1")
+        assert valid is False
+
+    # --- XSS Payloads ---
+
+    def test_xss_payload_portfolio_id(self):
+        """Test XSS payload rejected as portfolio ID"""
+        valid, _ = validate_portfolio_id("<script>alert('xss')</script>")
+        assert valid is False
+
+    def test_xss_payload_account_number(self):
+        """Test XSS payload rejected as account number"""
+        valid, _ = validate_account_number("<script>alert('xss')</script>")
+        assert valid is False
+
+    def test_xss_payload_investment_type(self):
+        """Test XSS payload rejected as investment type"""
+        valid, _ = validate_investment_type("<script>alert('xss')</script>")
+        assert valid is False
+
+    def test_xss_payload_amount(self):
+        """Test XSS payload rejected as amount"""
+        valid, _ = validate_amount("<script>alert('xss')</script>")
+        assert valid is False
+
+    # --- Unicode Characters ---
+
+    def test_null_char_portfolio_id(self):
+        """Test null character rejected as portfolio ID"""
+        valid, _ = validate_portfolio_id("\u0000")
+        assert valid is False
+
+    def test_null_char_account_number(self):
+        """Test null character rejected as account number"""
+        valid, _ = validate_account_number("\u0000")
+        assert valid is False
+
+    def test_null_char_investment_type(self):
+        """Test null character rejected as investment type"""
+        valid, _ = validate_investment_type("\u0000")
+        assert valid is False
+
+    def test_null_char_amount(self):
+        """Test null character rejected as amount"""
+        valid, _ = validate_amount("\u0000")
+        assert valid is False
+
+    def test_zero_width_space_portfolio_id(self):
+        """Test portfolio ID with zero-width space is rejected"""
+        valid, _ = validate_portfolio_id("PORT\u200B1234")
+        assert valid is False
+
+    def test_zero_width_space_account_number(self):
+        """Test account number with zero-width space is rejected"""
+        valid, _ = validate_account_number("123456\u200B890")
+        assert valid is False
+
+    # --- Extremely Long Inputs ---
+
+    def test_long_input_portfolio_id(self):
+        """Test 1000+ character input rejected as portfolio ID"""
+        valid, _ = validate_portfolio_id("A" * 1001)
+        assert valid is False
+
+    def test_long_input_account_number(self):
+        """Test 1000+ digit input rejected as account number"""
+        valid, _ = validate_account_number("1" * 1001)
+        assert valid is False
+
+    def test_long_input_investment_type(self):
+        """Test 1000+ character input rejected as investment type"""
+        valid, _ = validate_investment_type("A" * 1001)
+        assert valid is False
+
+    def test_long_input_amount(self):
+        """Test 1000+ digit numeric input rejected as amount (out of range)"""
+        valid, _ = validate_amount("9" * 1001)
+        assert valid is False
+
+    # --- Whitespace-Only Inputs ---
+
+    def test_whitespace_only_portfolio_id(self):
+        """Test whitespace-only input rejected as portfolio ID"""
+        valid, _ = validate_portfolio_id("   ")
+        assert valid is False
+
+    def test_whitespace_only_account_number(self):
+        """Test whitespace-only input rejected as account number"""
+        valid, _ = validate_account_number("   ")
+        assert valid is False
+
+    def test_whitespace_only_investment_type(self):
+        """Test whitespace-only input rejected as investment type"""
+        valid, _ = validate_investment_type("   ")
+        assert valid is False
+
+    def test_whitespace_only_amount(self):
+        """Test whitespace-only input rejected as amount"""
+        valid, _ = validate_amount("   ")
+        assert valid is False
+
+    # --- Special Characters ---
+
+    def test_special_chars_portfolio_id(self):
+        """Test special characters rejected as portfolio ID"""
+        valid, _ = validate_portfolio_id("!@#$%^&*()")
+        assert valid is False
+
+    def test_special_chars_account_number(self):
+        """Test special characters rejected as account number"""
+        valid, _ = validate_account_number("!@#$%^&*()")
+        assert valid is False
+
+    def test_special_chars_investment_type(self):
+        """Test special characters rejected as investment type"""
+        valid, _ = validate_investment_type("!@#$%^&*()")
+        assert valid is False
+
+    def test_special_chars_amount(self):
+        """Test special characters rejected as amount"""
+        valid, _ = validate_amount("!@#$%^&*()")
+        assert valid is False
+
+    # --- Float Special Values for validate_amount ---
+
+    def test_amount_positive_infinity(self):
+        """Test float positive infinity rejected as amount"""
+        valid, message = validate_amount(float('inf'))
+        assert valid is False
+        assert "Amount must be between" in message
+
+    def test_amount_negative_infinity(self):
+        """Test float negative infinity rejected as amount"""
+        valid, message = validate_amount(float('-inf'))
+        assert valid is False
+        assert "Amount must be between" in message
+
+    def test_amount_nan(self):
+        """Test float NaN raises exception due to invalid comparison"""
+        from decimal import InvalidOperation
+        with pytest.raises(InvalidOperation):
+            validate_amount(float('nan'))
+
+    # --- Integer Input for validate_amount ---
+
+    def test_amount_integer_input(self):
+        """Test positive integer accepted by validate_amount"""
+        valid, message = validate_amount(1000)
+        assert valid is True
+        assert message == "Valid amount"
+
+    def test_amount_negative_integer_input(self):
+        """Test negative integer accepted by validate_amount"""
+        valid, message = validate_amount(-500)
+        assert valid is True
+        assert message == "Valid amount"
+
+    def test_amount_zero_integer_input(self):
+        """Test zero integer accepted by validate_amount"""
+        valid, message = validate_amount(0)
+        assert valid is True
+        assert message == "Valid amount"
+
+    # --- Very High Precision Decimals for validate_amount ---
+
+    def test_amount_high_precision_within_range(self):
+        """Test high precision decimal within range accepted"""
+        valid, message = validate_amount("1000.123456789012345678901234567890")
+        assert valid is True
+        assert message == "Valid amount"
+
+    def test_amount_high_precision_near_max_under(self):
+        """Test high precision decimal just under max boundary accepted"""
+        valid, message = validate_amount("9999999999999.989999999999999")
+        assert valid is True
+        assert message == "Valid amount"
+
+    def test_amount_high_precision_over_max(self):
+        """Test high precision decimal exceeding max boundary rejected"""
+        valid, message = validate_amount("9999999999999.999999999999")
+        assert valid is False
+        assert "Amount must be between" in message
