@@ -405,4 +405,4 @@ class TestFeeProcessing:
         service = PortfolioService(db_session)
         result = service.process_transaction(fee_txn)
 
-        assert result["success"] is True or result["success"] is False
+        assert result["success"] is True  # fee silently succeeds when portfolio not found
