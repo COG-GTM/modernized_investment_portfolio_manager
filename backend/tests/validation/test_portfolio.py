@@ -1,5 +1,6 @@
+import math
 import pytest
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from validation.portfolio import (
     validate_portfolio_id,
     validate_account_number,
@@ -71,6 +72,24 @@ class TestValidatePortfolioId:
         assert valid is False
         assert message == "Portfolio ID must have 4 numeric digits after 'PORT'"
 
+    def test_special_characters(self):
+        """Test portfolio ID with special characters in suffix"""
+        valid, message = validate_portfolio_id("PORT!@#$")
+        assert valid is False
+        assert message == "Portfolio ID must have 4 numeric digits after 'PORT'"
+
+    def test_whitespace_in_id(self):
+        """Test portfolio ID with whitespace in suffix"""
+        valid, message = validate_portfolio_id("PORT 123")
+        assert valid is False
+        assert message == "Portfolio ID must have 4 numeric digits after 'PORT'"
+
+    def test_all_numeric(self):
+        """Test portfolio ID that is all numeric (wrong prefix)"""
+        valid, message = validate_portfolio_id("12345678")
+        assert valid is False
+        assert message == "Portfolio ID must start with 'PORT'"
+
 
 class TestValidateAccountNumber:
     """Test account number validation function"""
@@ -135,6 +154,30 @@ class TestValidateAccountNumber:
         assert valid is False
         assert message == "Account number must contain only numeric characters"
 
+    def test_account_number_with_leading_zeros(self):
+        """Test account number with leading zeros (not all zeros)"""
+        valid, message = validate_account_number("0000000001")
+        assert valid is True
+        assert message == "Valid account number"
+
+    def test_account_number_with_special_chars(self):
+        """Test account number with special characters"""
+        valid, message = validate_account_number("12345!7890")
+        assert valid is False
+        assert message == "Account number must contain only numeric characters"
+
+    def test_account_number_with_unicode(self):
+        """Test account number with unicode digit 0 (\\u0030)"""
+        valid, message = validate_account_number("123456789\u0030")
+        assert valid is True
+        assert message == "Valid account number"
+
+    def test_account_number_with_newline(self):
+        """Test account number with newline character"""
+        valid, message = validate_account_number("123456789\n")
+        assert valid is False
+        assert message == "Account number must contain only numeric characters"
+
 
 class TestValidateInvestmentType:
     """Test investment type validation function"""
@@ -190,6 +233,24 @@ class TestValidateInvestmentType:
     def test_mixed_case_investment_type(self):
         """Test mixed case investment type"""
         valid, message = validate_investment_type("Stk")
+        assert valid is False
+        assert "Investment type must be one of: BND, ETF, MMF, STK" in message
+
+    def test_partial_valid_type(self):
+        """Test partial valid type string"""
+        valid, message = validate_investment_type("ST")
+        assert valid is False
+        assert "Investment type must be one of: BND, ETF, MMF, STK" in message
+
+    def test_type_with_trailing_space(self):
+        """Test investment type with trailing space"""
+        valid, message = validate_investment_type("STK ")
+        assert valid is False
+        assert "Investment type must be one of: BND, ETF, MMF, STK" in message
+
+    def test_numeric_type(self):
+        """Test numeric string as investment type"""
+        valid, message = validate_investment_type("123")
         assert valid is False
         assert "Investment type must be one of: BND, ETF, MMF, STK" in message
 
@@ -281,6 +342,41 @@ class TestValidateAmount:
         assert valid is False
         assert message == "Amount must be a valid number"
 
+    def test_amount_integer(self):
+        """Test amount as integer"""
+        valid, message = validate_amount(1000)
+        assert valid is True
+        assert message == "Valid amount"
+
+    def test_amount_negative_integer(self):
+        """Test amount as negative integer"""
+        valid, message = validate_amount(-500)
+        assert valid is True
+        assert message == "Valid amount"
+
+    def test_amount_very_small_decimal(self):
+        """Test amount with very small decimal"""
+        valid, message = validate_amount("0.001")
+        assert valid is True
+        assert message == "Valid amount"
+
+    def test_amount_scientific_notation(self):
+        """Test amount in scientific notation (valid number)"""
+        valid, message = validate_amount("1e5")
+        assert valid is True
+        assert message == "Valid amount"
+
+    def test_amount_infinity(self):
+        """Test amount with infinity"""
+        valid, message = validate_amount(float('inf'))
+        assert valid is False
+        assert "Amount must be between" in message
+
+    def test_amount_nan(self):
+        """Test amount with NaN - NaN comparisons raise InvalidOperation"""
+        with pytest.raises((InvalidOperation, Exception)):
+            validate_amount(float('nan'))
+
 
 class TestEdgeCases:
     """Test edge cases and boundary conditions"""
@@ -314,3 +410,24 @@ class TestEdgeCases:
         
         valid, _ = validate_amount("-9999999999999.99")
         assert valid is True
+
+
+class TestValidationIntegration:
+    """Test combinations of validation functions"""
+
+    def test_valid_portfolio_and_account(self):
+        """Test that both portfolio ID and account number validate together"""
+        portfolio_valid, _ = validate_portfolio_id("PORT1234")
+        account_valid, _ = validate_account_number("1234567890")
+        assert portfolio_valid is True
+        assert account_valid is True
+
+    def test_all_valid_investment_types_with_amount(self):
+        """Test each valid investment type paired with a sample amount"""
+        valid_types = ["STK", "BND", "MMF", "ETF"]
+        sample_amount = "5000.00"
+        for inv_type in valid_types:
+            type_valid, type_msg = validate_investment_type(inv_type)
+            amount_valid, amount_msg = validate_amount(sample_amount)
+            assert type_valid is True, f"Expected {inv_type} to be valid, got: {type_msg}"
+            assert amount_valid is True, f"Expected amount {sample_amount} to be valid, got: {amount_msg}"
