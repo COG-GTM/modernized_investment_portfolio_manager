@@ -25,6 +25,9 @@ build/
 *.swp
 *.swo
 
+# Agent
+.devin/
+
 # OS
 .DS_Store
 Thumbs.db
