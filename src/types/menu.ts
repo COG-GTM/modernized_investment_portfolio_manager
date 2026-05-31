@@ -28,5 +28,12 @@ export const MENU_OPTIONS: MenuOption[] = [
     shortcut: '2',
     description: 'Review your investment transaction history and activity',
     route: '/transaction-history'
+  },
+  {
+    id: 'online-inquiry',
+    label: 'Online Inquiry',
+    shortcut: '3',
+    description: 'Access the online inquiry system for portfolio positions and transaction history',
+    route: '/online-inquiry'
   }
 ];
