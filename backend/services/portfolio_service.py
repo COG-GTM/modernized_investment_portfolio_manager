@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from models import Portfolio, Position, Transaction, History
+from models.portfolio import StatusUpdateRequest, ClientNameUpdateRequest, ValueUpdateRequest
 from typing import Dict, List, Optional
 from decimal import Decimal
 from datetime import datetime, date
@@ -126,3 +127,111 @@ class PortfolioService:
                 db_session=self.db
             )
             self.db.add(audit_record)
+    
+    def update_portfolio_status(self, request: StatusUpdateRequest) -> Dict[str, any]:
+        """Update portfolio status (COBOL UPDT-STATUS equivalent)"""
+        try:
+            portfolio = self.db.query(Portfolio).filter(
+                Portfolio.port_id == request.portfolio_id,
+                Portfolio.account_no == request.account_no
+            ).first()
+            
+            if not portfolio:
+                return {"success": False, "errors": ["Portfolio not found"], "portfolio_id": request.portfolio_id}
+            
+            before_data = portfolio.to_dict()
+            
+            portfolio.status = request.new_status
+            portfolio.last_maint = date.today()
+            portfolio.last_user = request.user
+            
+            audit_record = History.create_audit_record(
+                portfolio_id=request.portfolio_id,
+                record_type="PT",
+                action_code="C",
+                before_data=before_data,
+                after_data=portfolio.to_dict(),
+                reason_code="STAT",
+                user=request.user,
+                db_session=self.db
+            )
+            self.db.add(audit_record)
+            
+            self.db.commit()
+            return {"success": True, "errors": [], "portfolio_id": request.portfolio_id}
+            
+        except Exception as e:
+            self.db.rollback()
+            return {"success": False, "errors": [str(e)], "portfolio_id": request.portfolio_id}
+    
+    def update_portfolio_client_name(self, request: ClientNameUpdateRequest) -> Dict[str, any]:
+        """Update portfolio client name (COBOL UPDT-NAME equivalent)"""
+        try:
+            portfolio = self.db.query(Portfolio).filter(
+                Portfolio.port_id == request.portfolio_id,
+                Portfolio.account_no == request.account_no
+            ).first()
+            
+            if not portfolio:
+                return {"success": False, "errors": ["Portfolio not found"], "portfolio_id": request.portfolio_id}
+            
+            before_data = portfolio.to_dict()
+            
+            portfolio.client_name = request.new_client_name
+            portfolio.last_maint = date.today()
+            portfolio.last_user = request.user
+            
+            audit_record = History.create_audit_record(
+                portfolio_id=request.portfolio_id,
+                record_type="PT",
+                action_code="C",
+                before_data=before_data,
+                after_data=portfolio.to_dict(),
+                reason_code="NAME",
+                user=request.user,
+                db_session=self.db
+            )
+            self.db.add(audit_record)
+            
+            self.db.commit()
+            return {"success": True, "errors": [], "portfolio_id": request.portfolio_id}
+            
+        except Exception as e:
+            self.db.rollback()
+            return {"success": False, "errors": [str(e)], "portfolio_id": request.portfolio_id}
+    
+    def update_portfolio_value(self, request: ValueUpdateRequest) -> Dict[str, any]:
+        """Update portfolio total value (COBOL UPDT-VALUE equivalent)"""
+        try:
+            portfolio = self.db.query(Portfolio).filter(
+                Portfolio.port_id == request.portfolio_id,
+                Portfolio.account_no == request.account_no
+            ).first()
+            
+            if not portfolio:
+                return {"success": False, "errors": ["Portfolio not found"], "portfolio_id": request.portfolio_id}
+            
+            before_data = portfolio.to_dict()
+            
+            portfolio.total_value = Decimal(str(request.new_total_value))
+            portfolio.last_maint = date.today()
+            portfolio.last_user = request.user
+            
+            audit_record = History.create_audit_record(
+                portfolio_id=request.portfolio_id,
+                record_type="PT",
+                action_code="C",
+                before_data=before_data,
+                after_data=portfolio.to_dict(),
+                reason_code="VALU",
+                user=request.user,
+                db_session=self.db
+            )
+            self.db.add(audit_record)
+            
+            self.db.commit()
+            return {"success": True, "errors": [], "portfolio_id": request.portfolio_id}
+            
+        except Exception as e:
+            self.db.rollback()
+            return {"success": False, "errors": [str(e)], "portfolio_id": request.portfolio_id}
