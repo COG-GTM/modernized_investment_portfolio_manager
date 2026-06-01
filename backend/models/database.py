@@ -1,3 +1,5 @@
+import os
+
 from sqlalchemy import create_engine, Column, String, Numeric, Date, DateTime, CheckConstraint, ForeignKeyConstraint, Index
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
@@ -157,9 +159,10 @@ class Position(Base):
         }
 
 
-SQLITE_DATABASE_URL = "sqlite:///./portfolio.db"
+DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./portfolio.db")
 
 engine = create_engine(
-    SQLITE_DATABASE_URL, connect_args={"check_same_thread": False}
+    DATABASE_URL,
+    connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
