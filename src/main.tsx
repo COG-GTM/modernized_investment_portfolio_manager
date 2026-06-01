@@ -1,11 +1,19 @@
 import React from 'react'
-import ReactDOM from 'react-dom'
+import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 
-ReactDOM.render(
+const container = document.getElementById('root')!
+const root = createRoot(container, {
+  onUncaughtError: (error, errorInfo) => {
+    console.error('Uncaught error:', error, errorInfo)
+  },
+  onCaughtError: (error, errorInfo) => {
+    console.error('Caught error:', error, errorInfo)
+  }
+})
+root.render(
   <React.StrictMode>
     <App />
-  </React.StrictMode>,
-  document.getElementById('root')
+  </React.StrictMode>
 )
