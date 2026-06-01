@@ -10,7 +10,9 @@ function AppContent() {
     <Switch>
       <Route exact path={ROUTES.MAIN_MENU} component={MainMenu} />
       <Route path={ROUTES.PORTFOLIO_INQUIRY} component={PortfolioInquiry} />
+      <Route path={ROUTES.PORTFOLIO} component={PortfolioInquiry} />
       <Route path={ROUTES.TRANSACTION_HISTORY} component={TransactionHistory} />
+      <Route path={ROUTES.HISTORY} component={TransactionHistory} />
     </Switch>
   );
 }
