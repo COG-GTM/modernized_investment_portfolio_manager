@@ -1,0 +1,2 @@
+# CICS Online Inquiry System - Migrated to FastAPI REST API
+# Replaces: INQONLN, INQPORT, INQHIST, CURSMGR, DB2RECV, DB2ONLN, ERRHNDL, SECMGR
