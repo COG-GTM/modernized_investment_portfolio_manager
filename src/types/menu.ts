@@ -12,7 +12,7 @@ export interface MenuState {
   isKeyboardNavigation: boolean;
 }
 
-export type MenuOptionId = 'portfolio' | 'history';
+export type MenuOptionId = 'portfolio' | 'history' | 'submit' | 'status';
 
 export const MENU_OPTIONS: MenuOption[] = [
   {
@@ -28,5 +28,19 @@ export const MENU_OPTIONS: MenuOption[] = [
     shortcut: '2',
     description: 'Review your investment transaction history and activity',
     route: '/transaction-history'
+  },
+  {
+    id: 'submit',
+    label: 'Submit Transaction',
+    shortcut: '3',
+    description: 'Submit a new investment transaction for processing',
+    route: '/transaction-submit'
+  },
+  {
+    id: 'status',
+    label: 'Transaction Status',
+    shortcut: '4',
+    description: 'Track and monitor submitted transaction status',
+    route: '/transaction-status'
   }
 ];

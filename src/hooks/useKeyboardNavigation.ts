@@ -92,16 +92,18 @@ export function useKeyboardNavigation({
         event.preventDefault();
         resetSelection();
         break;
-      case '1':
-      case '2':
-      case '3':
-        event.preventDefault();
-        if (onNumberKeyActivate) {
-          onNumberKeyActivate(event.key);
+      default: {
+        const num = parseInt(event.key, 10);
+        if (!Number.isNaN(num) && num >= 1 && num <= itemCount) {
+          event.preventDefault();
+          if (onNumberKeyActivate) {
+            onNumberKeyActivate(event.key);
+          }
         }
         break;
+      }
     }
-  }, [state.selectedIndex, moveSelection, onActivate, onNumberKeyActivate, resetSelection]);
+  }, [state.selectedIndex, moveSelection, onActivate, onNumberKeyActivate, resetSelection, itemCount]);
 
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown);
