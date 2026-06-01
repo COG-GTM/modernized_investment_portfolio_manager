@@ -4,6 +4,7 @@ import { MENU_OPTIONS, MenuState } from '../types/menu';
 import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation';
 import MenuOption from '../components/MenuOption';
 import { Container, PageHeader } from '../components';
+import { ConfirmationDialog } from '../components/dialogs';
 
 export default function MainMenu() {
   const history = useHistory();
@@ -12,9 +13,29 @@ export default function MainMenu() {
     isKeyboardNavigation: false
   });
   
+  const [showExitDialog, setShowExitDialog] = useState(false);
+
+  const handleExitRequest = () => {
+    setShowExitDialog(true);
+  };
+
+  const handleExitConfirm = () => {
+    setShowExitDialog(false);
+    window.close();
+  };
+
+  const handleExitCancel = () => {
+    setShowExitDialog(false);
+  };
+
+  const menuOptions = MENU_OPTIONS.map(option => 
+    option.id === 'exit' 
+      ? { ...option, action: handleExitRequest }
+      : option
+  );
 
   const handleOptionActivate = (index: number) => {
-    const option = MENU_OPTIONS[index];
+    const option = menuOptions[index];
     if (!option) return;
 
     setMenuState(prev => ({
@@ -23,21 +44,23 @@ export default function MainMenu() {
       isKeyboardNavigation: true
     }));
 
-    if (option.route) {
+    if (option.action) {
+      setTimeout(() => option.action!(), 150);
+    } else if (option.route) {
       setTimeout(() => history.push(option.route!), 150);
     }
   };
 
   const handleNumberKeyActivate = (key: string) => {
-    const option = MENU_OPTIONS.find(opt => opt.shortcut === key);
+    const option = menuOptions.find(opt => opt.shortcut === key);
     if (option) {
-      const index = MENU_OPTIONS.indexOf(option);
+      const index = menuOptions.indexOf(option);
       handleOptionActivate(index);
     }
   };
 
   const { selectedIndex, isKeyboardNavigation, containerRef } = useKeyboardNavigation({
-    itemCount: MENU_OPTIONS.length,
+    itemCount: menuOptions.length,
     onActivate: handleOptionActivate,
     onNumberKeyActivate: handleNumberKeyActivate
   });
@@ -51,8 +74,8 @@ export default function MainMenu() {
   };
 
   const handleOptionKeyPress = (optionId: string) => {
-    const option = MENU_OPTIONS.find(opt => opt.id === optionId);
-    const index = option ? MENU_OPTIONS.indexOf(option) : -1;
+    const option = menuOptions.find(opt => opt.id === optionId);
+    const index = option ? menuOptions.indexOf(option) : -1;
     if (index >= 0) {
       handleOptionActivate(index);
     }
@@ -75,7 +98,7 @@ export default function MainMenu() {
             aria-label="Main navigation menu"
           >
             <div className="grid gap-6 md:grid-cols-2 max-w-4xl mx-auto animate-slide-up">
-              {MENU_OPTIONS.map((option, index) => (
+              {menuOptions.map((option, index) => (
                 <div 
                   key={option.id}
                   className="animate-fade-in"
@@ -97,7 +120,8 @@ export default function MainMenu() {
               <p className="text-sm text-muted-foreground">
                 Navigation: Use <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">↑↓</kbd> arrow keys or 
                 shortcuts <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">1</kbd>, 
-                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">2</kbd>. 
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">2</kbd>, 
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">3</kbd>. 
                 Press <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">Enter</kbd> to select, 
                 <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">Esc</kbd> to reset.
               </p>
@@ -106,6 +130,13 @@ export default function MainMenu() {
         </div>
       </Container>
 
+      <ConfirmationDialog
+        isOpen={showExitDialog}
+        title="Exit Application"
+        message="Are you sure you want to exit the Portfolio Management System?"
+        onConfirm={handleExitConfirm}
+        onCancel={handleExitCancel}
+      />
     </div>
   );
 }
