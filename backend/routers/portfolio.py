@@ -1,10 +1,31 @@
-from fastapi import APIRouter, HTTPException
-from models.portfolio import PortfolioSummary, PortfolioHolding
+from fastapi import APIRouter, HTTPException, Depends
+from models.portfolio import (
+    PortfolioSummary,
+    PortfolioHolding,
+    CreatePortfolioRequest,
+    CreatePortfolioResponse,
+    AddPositionRequest,
+    PositionResponse,
+    PortfolioPerformanceResponse,
+)
+from models.database import Portfolio, Position, SessionLocal, Base, engine
 from validation.portfolio import validate_account_number
-from datetime import datetime
-from typing import List
+from sqlalchemy.orm import Session
+from datetime import datetime, date
+from decimal import Decimal
+from typing import List, Generator
+
+Base.metadata.create_all(bind=engine)
 
 router = APIRouter(prefix="/api", tags=["portfolio"])
+
+
+def get_db() -> Generator[Session, None, None]:
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 def generate_mock_portfolio(account_number: str) -> PortfolioSummary:
@@ -82,3 +103,132 @@ async def get_transactions(account_number: str):
         "transactions": [],
         "message": "Transaction history endpoint - placeholder implementation"
     }
+
+
+@router.post("/portfolio", response_model=CreatePortfolioResponse, status_code=201)
+async def create_portfolio(request: CreatePortfolioRequest, db: Session = Depends(get_db)):
+    """Create a new portfolio"""
+    portfolio = Portfolio(
+        port_id=request.port_id,
+        account_no=request.account_no,
+        client_name=request.client_name,
+        client_type=request.client_type,
+        cash_balance=Decimal(str(request.cash_balance)),
+        total_value=Decimal(str(request.cash_balance)),
+        status="A",
+        create_date=date.today(),
+        last_maint=date.today(),
+    )
+
+    validation = portfolio.validate_portfolio()
+    if not validation["valid"]:
+        raise HTTPException(status_code=400, detail=validation["errors"])
+
+    existing = db.query(Portfolio).filter(
+        Portfolio.port_id == request.port_id,
+        Portfolio.account_no == request.account_no,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="Portfolio already exists")
+
+    db.add(portfolio)
+    db.commit()
+    db.refresh(portfolio)
+
+    return CreatePortfolioResponse(
+        port_id=portfolio.port_id,
+        account_no=portfolio.account_no,
+        client_name=portfolio.client_name,
+        client_type=portfolio.client_type,
+        status=portfolio.status,
+        cash_balance=float(portfolio.cash_balance) if portfolio.cash_balance else 0.0,
+        total_value=float(portfolio.total_value) if portfolio.total_value else 0.0,
+        create_date=portfolio.create_date.isoformat() if portfolio.create_date else None,
+        last_maint=portfolio.last_maint.isoformat() if portfolio.last_maint else None,
+    )
+
+
+@router.post("/portfolio/{portfolio_id}/positions", response_model=PositionResponse, status_code=201)
+async def add_position(portfolio_id: str, request: AddPositionRequest, db: Session = Depends(get_db)):
+    """Add a new investment position to a portfolio"""
+    portfolio = db.query(Portfolio).filter(Portfolio.port_id == portfolio_id).first()
+    if not portfolio:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+
+    today = date.today()
+    position = Position(
+        portfolio_id=portfolio_id,
+        date=today,
+        investment_id=request.investment_id,
+        quantity=Decimal(str(request.quantity)),
+        cost_basis=Decimal(str(request.cost_basis)),
+        market_value=Decimal(str(request.cost_basis)),
+        currency=request.currency,
+        status="A",
+        last_maint_date=datetime.now(),
+    )
+
+    validation = position.validate_position()
+    if not validation["valid"]:
+        raise HTTPException(status_code=400, detail=validation["errors"])
+
+    existing = db.query(Position).filter(
+        Position.portfolio_id == portfolio_id,
+        Position.date == today,
+        Position.investment_id == request.investment_id,
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail="Position for this investment already exists on this date",
+        )
+
+    db.add(position)
+    db.commit()
+    db.refresh(position)
+
+    gain_loss_data = position.calculate_gain_loss()
+
+    return PositionResponse(
+        portfolio_id=position.portfolio_id,
+        date=position.date.isoformat() if position.date else None,
+        investment_id=position.investment_id,
+        quantity=float(position.quantity) if position.quantity else 0.0,
+        cost_basis=float(position.cost_basis) if position.cost_basis else 0.0,
+        market_value=float(position.market_value) if position.market_value else 0.0,
+        currency=position.currency,
+        status=position.status,
+        gain_loss=float(gain_loss_data["gain_loss"]),
+        gain_loss_percent=float(gain_loss_data["gain_loss_percent"]),
+    )
+
+
+@router.get("/portfolio/{portfolio_id}/performance", response_model=PortfolioPerformanceResponse)
+async def get_portfolio_performance(portfolio_id: str, db: Session = Depends(get_db)):
+    """Calculate and return portfolio performance metrics"""
+    portfolio = db.query(Portfolio).filter(Portfolio.port_id == portfolio_id).first()
+    if not portfolio:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+
+    positions = db.query(Position).filter(Position.portfolio_id == portfolio_id).all()
+    active_positions = [p for p in positions if p.status == "A"]
+
+    total_cost_basis = Decimal("0.00")
+    total_gain_loss = Decimal("0.00")
+
+    for pos in active_positions:
+        total_cost_basis += pos.cost_basis or Decimal("0.00")
+        gain_loss_data = pos.calculate_gain_loss()
+        total_gain_loss += gain_loss_data["gain_loss"]
+
+    total_market_value = sum((pos.market_value or Decimal("0.00")) for pos in active_positions)
+    total_value = total_market_value + (portfolio.cash_balance or Decimal("0.00"))
+
+    return PortfolioPerformanceResponse(
+        total_value=float(total_value),
+        total_cost_basis=float(total_cost_basis),
+        total_gain_loss=float(total_gain_loss),
+        positions_count=len(positions),
+        active_positions=len(active_positions),
+        cash_balance=float(portfolio.cash_balance) if portfolio.cash_balance else 0.0,
+    )
