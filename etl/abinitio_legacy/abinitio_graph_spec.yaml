@@ -1,0 +1,315 @@
+# ============================================================================
+# Ab Initio ETL Graph Specification
+# Investment Portfolio Management System
+#
+# This YAML documents the legacy Ab Initio graphs that will be displaced
+# by the Devin-generated Python + Apache Iceberg pipeline.
+# ============================================================================
+
+metadata:
+  project: Investment Portfolio Management System
+  environment: Production (Teradata + Ab Initio)
+  owner: Data Engineering Team
+  last_modified: "2024-11-15"
+  ab_initio_version: "4.2.1"
+  schedule: "Daily 02:00 AM EST via Ab Initio Scheduler"
+
+# ---------------------------------------------------------------------------
+# Source Tables (Teradata)
+# ---------------------------------------------------------------------------
+source_tables:
+  - name: TD_PORTFOLIO_MASTER
+    database: INVESTMENT_DB
+    schema: PROD
+    primary_index: PORT_ID
+    estimated_rows: 50000
+    extract_method: BTEQ
+    description: "Master portfolio/account table"
+    columns:
+      - { name: PORT_ID, type: "VARCHAR(8)", nullable: false }
+      - { name: ACCT_NO, type: "VARCHAR(10)", nullable: false }
+      - { name: CLT_NM, type: "VARCHAR(30)", nullable: true }
+      - { name: CLT_TYP_CD, type: "CHAR(1)", nullable: true }
+      - { name: CRTE_DT, type: "DATE", nullable: true }
+      - { name: LST_MAINT_DT, type: "DATE", nullable: true }
+      - { name: STAT_CD, type: "CHAR(1)", nullable: true }
+      - { name: TOT_VAL_AM, type: "DECIMAL(15,2)", nullable: true }
+      - { name: CSH_BAL_AM, type: "DECIMAL(15,2)", nullable: true }
+      - { name: LST_USR_ID, type: "VARCHAR(8)", nullable: true }
+      - { name: LST_TRANS_ID, type: "VARCHAR(8)", nullable: true }
+
+  - name: TD_POSITION_DETAIL
+    database: INVESTMENT_DB
+    schema: PROD
+    primary_index: "PORT_ID, POS_DT, INVST_ID"
+    estimated_rows: 200000
+    extract_method: FastExport
+    description: "Investment position holdings per portfolio per date"
+    columns:
+      - { name: PORT_ID, type: "VARCHAR(8)", nullable: false }
+      - { name: POS_DT, type: "DATE", nullable: false }
+      - { name: INVST_ID, type: "VARCHAR(10)", nullable: false }
+      - { name: QTY_AM, type: "DECIMAL(15,4)", nullable: true }
+      - { name: CST_BAS_AM, type: "DECIMAL(15,2)", nullable: true }
+      - { name: MKT_VAL_AM, type: "DECIMAL(15,2)", nullable: true }
+      - { name: CRNCY_CD, type: "CHAR(3)", nullable: true }
+      - { name: STAT_CD, type: "CHAR(1)", nullable: true }
+      - { name: LST_MAINT_TS, type: "TIMESTAMP(6)", nullable: true }
+      - { name: LST_MAINT_USR, type: "VARCHAR(8)", nullable: true }
+
+  - name: TD_TRANSACTION_LOG
+    database: INVESTMENT_DB
+    schema: PROD
+    primary_index: "TXN_DT, PORT_ID, SEQ_NO"
+    estimated_rows: 1000000
+    extract_method: FastExport
+    description: "Trade and fee transaction records"
+    columns:
+      - { name: TXN_DT, type: "DATE", nullable: false }
+      - { name: TXN_TM, type: "TIME(6)", nullable: false }
+      - { name: PORT_ID, type: "VARCHAR(8)", nullable: false }
+      - { name: SEQ_NO, type: "VARCHAR(6)", nullable: false }
+      - { name: INVST_ID, type: "VARCHAR(10)", nullable: true }
+      - { name: TXN_TYP_CD, type: "CHAR(2)", nullable: true }
+      - { name: QTY_AM, type: "DECIMAL(15,4)", nullable: true }
+      - { name: PRC_AM, type: "DECIMAL(15,4)", nullable: true }
+      - { name: TXN_AM, type: "DECIMAL(15,2)", nullable: true }
+      - { name: CRNCY_CD, type: "CHAR(3)", nullable: true }
+      - { name: STAT_CD, type: "CHAR(1)", nullable: true }
+      - { name: PROC_TS, type: "TIMESTAMP(6)", nullable: true }
+      - { name: PROC_USR_ID, type: "VARCHAR(8)", nullable: true }
+
+  - name: TD_AUDIT_HISTORY
+    database: INVESTMENT_DB
+    schema: PROD
+    primary_index: "PORT_ID, AUD_DT, AUD_TM, SEQ_NO"
+    estimated_rows: 5000000
+    extract_method: BTEQ
+    description: "Change audit trail with before/after images"
+    columns:
+      - { name: PORT_ID, type: "VARCHAR(8)", nullable: false }
+      - { name: AUD_DT, type: "VARCHAR(8)", nullable: false }
+      - { name: AUD_TM, type: "VARCHAR(8)", nullable: false }
+      - { name: SEQ_NO, type: "VARCHAR(4)", nullable: false }
+      - { name: REC_TYP_CD, type: "CHAR(2)", nullable: true }
+      - { name: ACT_CD, type: "CHAR(1)", nullable: true }
+      - { name: BEF_IMG_TX, type: "CLOB(1M)", nullable: true }
+      - { name: AFT_IMG_TX, type: "CLOB(1M)", nullable: true }
+      - { name: RSN_CD, type: "VARCHAR(4)", nullable: true }
+      - { name: PROC_TS, type: "TIMESTAMP(6)", nullable: true }
+      - { name: PROC_USR_ID, type: "VARCHAR(8)", nullable: true }
+
+# ---------------------------------------------------------------------------
+# Transform Specifications (Ab Initio GDE Components)
+# ---------------------------------------------------------------------------
+transforms:
+  - name: dedup_portfolios
+    component_type: "Ab Initio Dedup Sort"
+    description: "Remove duplicate portfolio records, keep latest by LST_MAINT_DT"
+    input: TD_PORTFOLIO_MASTER
+    dedup_key: [PORT_ID, ACCT_NO]
+    sort_order: "LST_MAINT_DT DESC"
+    keep: first
+    output: DEDUPED_PORTFOLIO_MASTER
+    graph_file: "pset/dedup_portfolio.mp"
+    notes: "Handles duplicates from multi-source loads and reprocessing"
+
+  - name: dedup_transactions
+    component_type: "Ab Initio Dedup Sort"
+    description: "Remove duplicate transactions by composite key"
+    input: TD_TRANSACTION_LOG
+    dedup_key: [TXN_DT, TXN_TM, PORT_ID, SEQ_NO]
+    sort_order: "PROC_TS DESC"
+    keep: first
+    output: DEDUPED_TRANSACTION_LOG
+    graph_file: "pset/dedup_transactions.mp"
+
+  - name: validate_portfolios
+    component_type: "Ab Initio Filter"
+    description: "Data quality validation - reject invalid portfolio records"
+    input: DEDUPED_PORTFOLIO_MASTER
+    rules:
+      - field: PORT_ID
+        check: "NOT NULL AND LENGTH == 8"
+        reject_reason: "Invalid or missing portfolio ID"
+      - field: ACCT_NO
+        check: "NOT NULL AND LENGTH == 10 AND IS_NUMERIC"
+        reject_reason: "Invalid account number"
+      - field: CLT_TYP_CD
+        check: "IN ('I', 'C', 'T')"
+        reject_reason: "Invalid client type code"
+      - field: STAT_CD
+        check: "IN ('A', 'C', 'S')"
+        reject_reason: "Invalid status code"
+      - field: TOT_VAL_AM
+        check: ">= 0"
+        reject_reason: "Negative total value"
+    output_valid: VALID_PORTFOLIO_MASTER
+    output_reject: REJECT_PORTFOLIO_MASTER
+    graph_file: "pset/validate_portfolio.mp"
+
+  - name: validate_transactions
+    component_type: "Ab Initio Filter"
+    description: "Data quality validation - reject invalid transaction records"
+    input: DEDUPED_TRANSACTION_LOG
+    rules:
+      - field: TXN_DT
+        check: "NOT NULL AND IS_VALID_DATE"
+        reject_reason: "Missing or invalid transaction date"
+      - field: PORT_ID
+        check: "NOT NULL AND LENGTH == 8"
+        reject_reason: "Invalid portfolio ID"
+      - field: QTY_AM
+        check: ">= 0 WHEN TXN_TYP_CD IN ('BU', 'SL')"
+        reject_reason: "Negative quantity on buy/sell"
+      - field: PRC_AM
+        check: "> 0 WHEN TXN_TYP_CD IN ('BU', 'SL')"
+        reject_reason: "Zero or negative price on buy/sell"
+      - field: INVST_ID
+        check: "NOT NULL WHEN TXN_TYP_CD IN ('BU', 'SL')"
+        reject_reason: "Missing investment ID on buy/sell"
+    output_valid: VALID_TRANSACTION_LOG
+    output_reject: REJECT_TRANSACTION_LOG
+    graph_file: "pset/validate_transactions.mp"
+
+  - name: reformat_schema
+    component_type: "Ab Initio Reformat"
+    description: "Map Teradata column names to reporting schema conventions"
+    input: VALID_PORTFOLIO_MASTER
+    column_mappings:
+      - { source: PORT_ID, target: portfolio_id }
+      - { source: ACCT_NO, target: account_number }
+      - { source: CLT_NM, target: client_name }
+      - { source: CLT_TYP_CD, target: client_type }
+      - { source: CRTE_DT, target: create_date }
+      - { source: LST_MAINT_DT, target: last_maintenance_date }
+      - { source: STAT_CD, target: status }
+      - { source: TOT_VAL_AM, target: total_value }
+      - { source: CSH_BAL_AM, target: cash_balance }
+      - { source: LST_USR_ID, target: last_user }
+      - { source: LST_TRANS_ID, target: last_transaction_id }
+    graph_file: "pset/reformat_portfolio.mp"
+
+  - name: rollup_positions
+    component_type: "Ab Initio Rollup"
+    description: "Aggregate positions by portfolio - calculate total market value and cost basis"
+    input: TD_POSITION_DETAIL
+    group_by: [PORT_ID]
+    aggregations:
+      - { field: MKT_VAL_AM, function: SUM, output: total_market_value }
+      - { field: CST_BAS_AM, function: SUM, output: total_cost_basis }
+      - { field: INVST_ID, function: COUNT, output: position_count }
+      - { field: QTY_AM, function: SUM, output: total_quantity }
+    derived_fields:
+      - { name: total_gain_loss, expression: "total_market_value - total_cost_basis" }
+      - { name: gain_loss_percent, expression: "(total_gain_loss / total_cost_basis) * 100" }
+    output: ROLLUP_POSITION_SUMMARY
+    graph_file: "pset/rollup_positions.mp"
+
+  - name: join_portfolio_positions
+    component_type: "Ab Initio Join"
+    description: "Enrich portfolio records with aggregated position data"
+    left_input: VALID_PORTFOLIO_MASTER
+    right_input: ROLLUP_POSITION_SUMMARY
+    join_key: PORT_ID
+    join_type: LEFT_OUTER
+    output: ENRICHED_PORTFOLIO
+    graph_file: "pset/join_port_pos.mp"
+
+  - name: normalize_dates_currency
+    component_type: "Ab Initio Reformat"
+    description: "Standardize date formats (ISO 8601) and currency codes (ISO 4217)"
+    input: ENRICHED_PORTFOLIO
+    transformations:
+      - { field: create_date, transform: "TO_CHAR(create_date, 'YYYY-MM-DD')" }
+      - { field: last_maintenance_date, transform: "TO_CHAR(last_maintenance_date, 'YYYY-MM-DD')" }
+      - { field: currency, transform: "UPPER(TRIM(currency))" }
+    graph_file: "pset/normalize_dates.mp"
+
+# ---------------------------------------------------------------------------
+# Target Tables (Teradata Reporting)
+# ---------------------------------------------------------------------------
+target_tables:
+  - name: RPT_PORTFOLIO_SUMMARY
+    database: INVESTMENT_DB
+    schema: RPT
+    load_method: "MultiLoad (UPSERT)"
+    description: "Reporting table for portfolio summary with enriched position data"
+    primary_index: portfolio_id
+    columns:
+      - { name: portfolio_id, type: "VARCHAR(8)" }
+      - { name: account_number, type: "VARCHAR(10)" }
+      - { name: client_name, type: "VARCHAR(30)" }
+      - { name: client_type, type: "CHAR(1)" }
+      - { name: status, type: "CHAR(1)" }
+      - { name: total_value, type: "DECIMAL(15,2)" }
+      - { name: cash_balance, type: "DECIMAL(15,2)" }
+      - { name: total_market_value, type: "DECIMAL(15,2)" }
+      - { name: total_cost_basis, type: "DECIMAL(15,2)" }
+      - { name: total_gain_loss, type: "DECIMAL(15,2)" }
+      - { name: position_count, type: "INTEGER" }
+      - { name: create_date, type: "DATE" }
+      - { name: last_maintenance_date, type: "DATE" }
+
+  - name: RPT_POSITION_ROLLUP
+    database: INVESTMENT_DB
+    schema: RPT
+    load_method: "MultiLoad (UPSERT)"
+    description: "Reporting table for position rollups by portfolio"
+    primary_index: "portfolio_id, investment_id"
+    columns:
+      - { name: portfolio_id, type: "VARCHAR(8)" }
+      - { name: investment_id, type: "VARCHAR(10)" }
+      - { name: total_quantity, type: "DECIMAL(15,4)" }
+      - { name: total_cost_basis, type: "DECIMAL(15,2)" }
+      - { name: total_market_value, type: "DECIMAL(15,2)" }
+      - { name: gain_loss, type: "DECIMAL(15,2)" }
+      - { name: gain_loss_percent, type: "DECIMAL(8,4)" }
+
+  - name: RPT_TRANSACTION_DETAIL
+    database: INVESTMENT_DB
+    schema: RPT
+    load_method: "TPT (Teradata Parallel Transporter)"
+    description: "Reporting table for cleansed transaction detail"
+    primary_index: "transaction_date, portfolio_id, sequence_no"
+    partition_by: "RANGE_N(transaction_date)"
+    columns:
+      - { name: transaction_date, type: "DATE" }
+      - { name: transaction_time, type: "TIME(6)" }
+      - { name: portfolio_id, type: "VARCHAR(8)" }
+      - { name: sequence_no, type: "VARCHAR(6)" }
+      - { name: investment_id, type: "VARCHAR(10)" }
+      - { name: transaction_type, type: "CHAR(2)" }
+      - { name: quantity, type: "DECIMAL(15,4)" }
+      - { name: price, type: "DECIMAL(15,4)" }
+      - { name: amount, type: "DECIMAL(15,2)" }
+      - { name: currency, type: "CHAR(3)" }
+      - { name: status, type: "CHAR(1)" }
+
+# ---------------------------------------------------------------------------
+# Scheduling & Error Handling
+# ---------------------------------------------------------------------------
+scheduling:
+  tool: "Ab Initio Scheduler"
+  cron: "0 2 * * *"  # Daily at 2 AM EST
+  dependency_chain:
+    - extract_all_sources
+    - transform_dedup
+    - transform_validate
+    - transform_reformat
+    - transform_rollup
+    - transform_join
+    - transform_normalize
+    - load_reporting_tables
+  retry_policy:
+    max_retries: 3
+    retry_interval_minutes: 15
+  notification:
+    on_failure: "dba-team@company.com"
+    on_success: "etl-monitoring@company.com"
+
+error_handling:
+  reject_threshold_percent: 5
+  reject_file_location: "/data/ab_initio/rejects/"
+  error_log_location: "/data/ab_initio/logs/"
+  dmp_archive_days: 90
