@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
-import { useHistory, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ROUTES } from '../types/routes';
 
 export function useGlobalNavigation() {
-  const history = useHistory();
+  const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
@@ -28,7 +28,7 @@ export function useGlobalNavigation() {
         }
 
         event.preventDefault();
-        history.push(ROUTES.MAIN_MENU);
+        navigate(ROUTES.MAIN_MENU);
       }
     };
 
@@ -37,5 +37,5 @@ export function useGlobalNavigation() {
     return () => {
       document.removeEventListener('keydown', handleGlobalKeyDown);
     };
-  }, [history, location.pathname]);
+  }, [navigate, location.pathname]);
 }
