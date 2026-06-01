@@ -6,7 +6,8 @@ import os
 from datetime import datetime, date
 from decimal import Decimal
 from sqlalchemy.orm import sessionmaker
-from models.database import engine, Base, Portfolio, Position
+from core.db import engine, Base
+from models.database import Portfolio, Position
 from models.transactions import Transaction
 from datetime import time
 

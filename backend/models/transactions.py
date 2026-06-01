@@ -1,6 +1,6 @@
 from sqlalchemy import Column, String, Numeric, Date, Time, DateTime, CheckConstraint, ForeignKeyConstraint, Index
 from sqlalchemy.orm import relationship
-from .database import Base
+from core.db import Base
 from decimal import Decimal
 from typing import Dict, List, Optional
 from datetime import datetime, date
