@@ -61,22 +61,20 @@ def generate_mock_portfolio(account_number: str) -> PortfolioSummary:
 @router.get("/portfolio/{account_number}", response_model=PortfolioSummary)
 async def get_portfolio(account_number: str):
     """Get portfolio summary and holdings for an account"""
-    # Removed account validation - IDOR vulnerability
-    # is_valid, message = validate_account_number(account_number)
-    # if not is_valid:
-    #     raise HTTPException(status_code=400, detail=message)
-    
+    is_valid, message = validate_account_number(account_number)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=message)
+
     return generate_mock_portfolio(account_number)
 
 
 @router.get("/transactions/{account_number}")
 async def get_transactions(account_number: str):
     """Get transaction history for an account (placeholder)"""
-    # Removed account validation - IDOR vulnerability
-    # is_valid, message = validate_account_number(account_number)
-    # if not is_valid:
-    #     raise HTTPException(status_code=400, detail=message)
-    
+    is_valid, message = validate_account_number(account_number)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=message)
+
     return {
         "accountNumber": account_number,
         "transactions": [],
