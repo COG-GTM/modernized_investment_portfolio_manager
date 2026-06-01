@@ -24,23 +24,52 @@ def seed_portfolio_data():
             print("Portfolio data already exists. Skipping seeding.")
             return
         
-        portfolio = Portfolio(
-            port_id="PF-12345",
-            account_no="1234567890",
-            client_name="Sample Client",
-            client_type="I",  # Individual
-            create_date=date(2024, 1, 15),
-            last_maint=date.today(),
-            status="A",  # Active
-            total_value=Decimal("125750.50"),
-            cash_balance=Decimal("252.00"),
-            last_user="SYSTEM",
-            last_trans="SEED001"
-        )
-        
-        session.add(portfolio)
-        session.flush()  # Get the portfolio ID
-        
+        portfolios = [
+            Portfolio(
+                port_id="PF-12345",
+                account_no="1234567890",
+                client_name="Sample Client",
+                client_type="I",
+                create_date=date(2024, 1, 15),
+                last_maint=date.today(),
+                status="A",
+                total_value=Decimal("125750.50"),
+                cash_balance=Decimal("252.00"),
+                last_user="SYSTEM",
+                last_trans="SEED001"
+            ),
+            Portfolio(
+                port_id="PF-67890",
+                account_no="9876543210",
+                client_name="Corporate Holdings LLC",
+                client_type="C",
+                create_date=date(2023, 6, 1),
+                last_maint=date.today(),
+                status="A",
+                total_value=Decimal("500250.75"),
+                cash_balance=Decimal("15000.00"),
+                last_user="SYSTEM",
+                last_trans="SEED002"
+            ),
+            Portfolio(
+                port_id="PF-11111",
+                account_no="5551234567",
+                client_name="Trust Fund Alpha",
+                client_type="T",
+                create_date=date(2024, 3, 10),
+                last_maint=date.today(),
+                status="A",
+                total_value=Decimal("75000.00"),
+                cash_balance=Decimal("5000.00"),
+                last_user="SYSTEM",
+                last_trans="SEED003"
+            ),
+        ]
+
+        for portfolio in portfolios:
+            session.add(portfolio)
+        session.flush()
+
         positions = [
             Position(
                 portfolio_id="PF-12345",
@@ -89,7 +118,67 @@ def seed_portfolio_data():
                 status="A",
                 last_maint_date=datetime.now(),
                 last_maint_user="SYSTEM"
-            )
+            ),
+            Position(
+                portfolio_id="PF-67890",
+                date=date.today(),
+                investment_id="AMZN",
+                quantity=Decimal("300.0000"),
+                cost_basis=Decimal("105000.00"),
+                market_value=Decimal("127500.00"),
+                currency="USD",
+                status="A",
+                last_maint_date=datetime.now(),
+                last_maint_user="SYSTEM"
+            ),
+            Position(
+                portfolio_id="PF-67890",
+                date=date.today(),
+                investment_id="NVDA",
+                quantity=Decimal("250.0000"),
+                cost_basis=Decimal("200000.00"),
+                market_value=Decimal("237500.00"),
+                currency="USD",
+                status="A",
+                last_maint_date=datetime.now(),
+                last_maint_user="SYSTEM"
+            ),
+            Position(
+                portfolio_id="PF-67890",
+                date=date.today(),
+                investment_id="META",
+                quantity=Decimal("175.0000"),
+                cost_basis=Decimal("87500.00"),
+                market_value=Decimal("120250.75"),
+                currency="USD",
+                status="A",
+                last_maint_date=datetime.now(),
+                last_maint_user="SYSTEM"
+            ),
+            Position(
+                portfolio_id="PF-11111",
+                date=date.today(),
+                investment_id="JPM",
+                quantity=Decimal("100.0000"),
+                cost_basis=Decimal("35000.00"),
+                market_value=Decimal("40000.00"),
+                currency="USD",
+                status="A",
+                last_maint_date=datetime.now(),
+                last_maint_user="SYSTEM"
+            ),
+            Position(
+                portfolio_id="PF-11111",
+                date=date.today(),
+                investment_id="V",
+                quantity=Decimal("120.0000"),
+                cost_basis=Decimal("25000.00"),
+                market_value=Decimal("30000.00"),
+                currency="USD",
+                status="A",
+                last_maint_date=datetime.now(),
+                last_maint_user="SYSTEM"
+            ),
         ]
         
         for position in positions:
@@ -102,12 +191,12 @@ def seed_portfolio_data():
                 portfolio_id="PF-12345",
                 sequence_no="000001",
                 investment_id="AAPL",
-                type="BU",  # Buy
+                type="BU",
                 quantity=Decimal("150.0000"),
                 price=Decimal("170.0000"),
                 amount=Decimal("25500.00"),
                 currency="USD",
-                status="D",  # Done
+                status="D",
                 process_date=datetime.now(),
                 process_user="SYSTEM"
             ),
@@ -117,15 +206,90 @@ def seed_portfolio_data():
                 portfolio_id="PF-12345",
                 sequence_no="000002",
                 investment_id="MSFT",
-                type="BU",  # Buy
+                type="BU",
                 quantity=Decimal("100.0000"),
                 price=Decimal("340.0000"),
                 amount=Decimal("34000.00"),
                 currency="USD",
-                status="D",  # Done
+                status="D",
                 process_date=datetime.now(),
                 process_user="SYSTEM"
-            )
+            ),
+            Transaction(
+                date=date(2024, 2, 1),
+                time=time(9, 0, 0),
+                portfolio_id="PF-12345",
+                sequence_no="000003",
+                investment_id="GOOGL",
+                type="BU",
+                quantity=Decimal("75.0000"),
+                price=Decimal("133.3333"),
+                amount=Decimal("10000.00"),
+                currency="USD",
+                status="D",
+                process_date=datetime.now(),
+                process_user="SYSTEM"
+            ),
+            Transaction(
+                date=date(2024, 2, 10),
+                time=time(11, 45, 0),
+                portfolio_id="PF-12345",
+                sequence_no="000004",
+                investment_id="TSLA",
+                type="BU",
+                quantity=Decimal("200.0000"),
+                price=Decimal("238.7400"),
+                amount=Decimal("47748.00"),
+                currency="USD",
+                status="D",
+                process_date=datetime.now(),
+                process_user="SYSTEM"
+            ),
+            Transaction(
+                date=date(2023, 6, 15),
+                time=time(10, 0, 0),
+                portfolio_id="PF-67890",
+                sequence_no="000001",
+                investment_id="AMZN",
+                type="BU",
+                quantity=Decimal("300.0000"),
+                price=Decimal("350.0000"),
+                amount=Decimal("105000.00"),
+                currency="USD",
+                status="D",
+                process_date=datetime.now(),
+                process_user="SYSTEM"
+            ),
+            Transaction(
+                date=date(2023, 7, 1),
+                time=time(14, 30, 0),
+                portfolio_id="PF-67890",
+                sequence_no="000002",
+                investment_id="NVDA",
+                type="BU",
+                quantity=Decimal("250.0000"),
+                price=Decimal("800.0000"),
+                amount=Decimal("200000.00"),
+                currency="USD",
+                status="D",
+                process_date=datetime.now(),
+                process_user="SYSTEM"
+            ),
+            Transaction(
+                date=date(2024, 3, 15),
+                time=time(9, 30, 0),
+                portfolio_id="PF-11111",
+                sequence_no="000001",
+                investment_id="JPM",
+                type="BU",
+                quantity=Decimal("100.0000"),
+                price=Decimal("350.0000"),
+                amount=Decimal("35000.00"),
+                currency="USD",
+                status="D",
+                process_date=datetime.now(),
+                process_user="SYSTEM"
+            ),
         ]
         
         for transaction in transactions:
@@ -133,7 +297,8 @@ def seed_portfolio_data():
         
         session.commit()
         print("Successfully seeded database with sample portfolio data!")
-        print(f"Created portfolio: {portfolio.port_id} for account: {portfolio.account_no}")
+        for p in portfolios:
+            print(f"Created portfolio: {p.port_id} for account: {p.account_no}")
         print(f"Added {len(positions)} positions")
         print(f"Added {len(transactions)} transactions")
         
@@ -149,9 +314,11 @@ def verify_seeded_data():
     session = SessionLocal()
     
     try:
-        portfolio = session.query(Portfolio).filter_by(account_no="1234567890").first()
-        if portfolio:
-            print(f"\n✅ Portfolio found: {portfolio.port_id}")
+        all_portfolios = session.query(Portfolio).all()
+        print(f"\nFound {len(all_portfolios)} portfolios:")
+        
+        for portfolio in all_portfolios:
+            print(f"\n  Portfolio: {portfolio.port_id}")
             print(f"   Account: {portfolio.account_no}")
             print(f"   Client: {portfolio.client_name}")
             print(f"   Total Value: ${portfolio.total_value}")
@@ -165,8 +332,6 @@ def verify_seeded_data():
             print(f"   Transactions: {len(transactions)}")
             for trans in transactions:
                 print(f"     - {trans.type} {trans.investment_id}: {trans.quantity} @ ${trans.price}")
-        else:
-            print("❌ No portfolio found!")
             
     except Exception as e:
         print(f"Error verifying data: {e}")
