@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Switch, Route } from 'react-router-dom';
-import { MainMenu, PortfolioInquiry, TransactionHistory } from './pages';
+import { PortfolioInquiry, TransactionHistory } from './pages';
+import Menu from './components/Menu';
 import { ROUTES } from './types/routes';
 import { useGlobalNavigation } from './hooks/useGlobalNavigation';
 
@@ -8,7 +9,7 @@ function AppContent() {
 
   return (
     <Switch>
-      <Route exact path={ROUTES.MAIN_MENU} component={MainMenu} />
+      <Route exact path={ROUTES.MAIN_MENU} component={Menu} />
       <Route path={ROUTES.PORTFOLIO_INQUIRY} component={PortfolioInquiry} />
       <Route path={ROUTES.TRANSACTION_HISTORY} component={TransactionHistory} />
     </Switch>
