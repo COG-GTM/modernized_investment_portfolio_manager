@@ -12,7 +12,7 @@ export interface MenuState {
   isKeyboardNavigation: boolean;
 }
 
-export type MenuOptionId = 'portfolio' | 'history';
+export type MenuOptionId = 'portfolio' | 'history' | 'visitors';
 
 export const MENU_OPTIONS: MenuOption[] = [
   {
@@ -28,5 +28,12 @@ export const MENU_OPTIONS: MenuOption[] = [
     shortcut: '2',
     description: 'Review your investment transaction history and activity',
     route: '/transaction-history'
+  },
+  {
+    id: 'visitors',
+    label: 'Visitors',
+    shortcut: '3',
+    description: 'View the history of all portfolio visitors and access logs',
+    route: '/visitors-history'
   }
 ];

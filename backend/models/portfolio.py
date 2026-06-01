@@ -42,3 +42,19 @@ class TransactionResponse(BaseModel):
     accountNumber: str
     transactions: List[dict]
     message: str
+
+
+class VisitorRecord(BaseModel):
+    visitorId: str
+    accountNumber: str
+    visitorName: str
+    action: str
+    ipAddress: str
+    timestamp: str
+    duration: str
+
+
+class VisitorsHistoryResponse(BaseModel):
+    totalVisits: int
+    visitors: List[VisitorRecord]
+    lastUpdated: str
