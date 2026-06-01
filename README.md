@@ -1,6 +1,23 @@
 # modernized_investment_portfolio_manager
 Modernized version of the COBOL Legacy Benchmark Suite (CLBS), a production-grade Investment Portfolio Management System
 
+## Features
+
+### Main Menu Navigation
+The application provides a terminal-inspired main menu with three core options:
+
+1. **Portfolio Position Inquiry** - View and analyze investment portfolio holdings and performance
+2. **Transaction History** - Review investment transaction history and activity  
+3. **Exit** - Return to main menu and reset application state
+
+**Navigation Options:**
+- Click menu options with mouse
+- Use keyboard shortcuts: Press `1`, `2`, or `3` to select an option
+- Use arrow keys (`↑` `↓`) to navigate between options, then press `Enter` to select
+- Press `Esc` to reset selection
+
+This design mirrors the original COBOL system's three-option menu structure defined in the legacy CICS/3270 terminal interface.
+
 ## Setup Instructions
 
 ### Prerequisites
