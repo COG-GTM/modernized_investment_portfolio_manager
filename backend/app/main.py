@@ -1,6 +1,5 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import psycopg
 from routers import portfolio, accounts
 
 app = FastAPI(
