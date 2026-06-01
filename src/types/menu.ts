@@ -12,7 +12,7 @@ export interface MenuState {
   isKeyboardNavigation: boolean;
 }
 
-export type MenuOptionId = 'portfolio' | 'history';
+export type MenuOptionId = 'portfolio' | 'history' | 'transfer';
 
 export const MENU_OPTIONS: MenuOption[] = [
   {
@@ -28,5 +28,12 @@ export const MENU_OPTIONS: MenuOption[] = [
     shortcut: '2',
     description: 'Review your investment transaction history and activity',
     route: '/transaction-history'
+  },
+  {
+    id: 'transfer',
+    label: 'Transfer',
+    shortcut: '3',
+    description: 'Transfer securities between accounts',
+    route: '/portfolio-transfer'
   }
 ];

@@ -1,10 +1,26 @@
-from fastapi import APIRouter, HTTPException
-from models.portfolio import PortfolioSummary, PortfolioHolding
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from models.portfolio import (
+    PortfolioSummary,
+    PortfolioHolding,
+    TransferRequest,
+    TransferResponse,
+)
+from models import SessionLocal
+from services.portfolio_service import PortfolioService
 from validation.portfolio import validate_account_number
 from datetime import datetime
 from typing import List
 
 router = APIRouter(prefix="/api", tags=["portfolio"])
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 def generate_mock_portfolio(account_number: str) -> PortfolioSummary:
@@ -82,3 +98,71 @@ async def get_transactions(account_number: str):
         "transactions": [],
         "message": "Transaction history endpoint - placeholder implementation"
     }
+
+
+def _validate_transfer_account(account_number: str, field: str) -> None:
+    if not account_number or len(account_number) != 10 or not account_number.isdigit():
+        raise HTTPException(
+            status_code=400,
+            detail=f"{field} must be exactly 10 numeric digits",
+        )
+
+
+@router.post("/transfer", response_model=TransferResponse)
+async def transfer_positions(
+    request: TransferRequest,
+    db: Session = Depends(get_db),
+):
+    """Transfer securities/positions from one account to another.
+
+    Validates both accounts, records a transfer transaction (type='TR'),
+    moves positions between portfolios, and updates portfolio totals.
+    All updates run inside a single database transaction so the operation
+    is atomic: any failure rolls back every change.
+    """
+    _validate_transfer_account(request.source_account, "Source account")
+    _validate_transfer_account(request.destination_account, "Destination account")
+
+    if request.source_account == request.destination_account:
+        raise HTTPException(
+            status_code=400,
+            detail="Source and destination accounts must be different",
+        )
+
+    if not request.positions:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one position is required",
+        )
+
+    for position in request.positions:
+        if not position.symbol:
+            raise HTTPException(
+                status_code=400,
+                detail="Each position must have a symbol",
+            )
+        if position.shares <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Shares for {position.symbol} must be greater than zero",
+            )
+
+    service = PortfolioService(db)
+    result = service.transfer_positions(
+        source_account=request.source_account,
+        destination_account=request.destination_account,
+        positions=[p.dict() for p in request.positions],
+    )
+
+    if not result["success"]:
+        message = "; ".join(result.get("errors", [])) or "Transfer failed"
+        raise HTTPException(status_code=400, detail=message)
+
+    return TransferResponse(
+        success=True,
+        message=(
+            f"Transferred {len(request.positions)} position(s) from "
+            f"{request.source_account} to {request.destination_account}"
+        ),
+        transfer_id=result["transfer_id"],
+    )
