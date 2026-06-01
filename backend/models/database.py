@@ -28,7 +28,8 @@ class Portfolio(Base):
     
     positions = relationship("Position", back_populates="portfolio", cascade="all, delete-orphan")
     transactions = relationship("Transaction", back_populates="portfolio", cascade="all, delete-orphan")
-    history_records = relationship("History", back_populates="portfolio", cascade="all, delete-orphan")
+    # history_records relationship removed — History is a standalone audit log
+    # that must survive portfolio deletion (no FK, no cascade).
     
     __table_args__ = (
         Index('idx_portfolio_status', 'status'),
