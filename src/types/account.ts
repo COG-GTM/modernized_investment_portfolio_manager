@@ -2,8 +2,10 @@ import { z } from 'zod';
 
 export const accountNumberSchema = z
   .string()
-  .length(10, 'Account number must be exactly 10 digits')
-  .regex(/^\d+$/, 'Account number must contain only numeric characters');
+  .min(1, 'Account number is required')
+  .length(9, 'Account number must be exactly 9 digits')
+  .regex(/^\d+$/, 'Account number must contain only digits')
+  .refine(val => val !== '000000000', { message: 'Invalid account number' });
 
 export type AccountNumber = z.infer<typeof accountNumberSchema>;
 
@@ -12,6 +14,14 @@ export const accountFormSchema = z.object({
 });
 
 export type AccountFormData = z.infer<typeof accountFormSchema>;
+
+export const formatAccountNumber = (value: string): string => {
+  if (!value) return '';
+  const cleaned = value.replace(/\D/g, '');
+  if (cleaned.length <= 3) return cleaned;
+  if (cleaned.length <= 6) return `${cleaned.slice(0, 3)}-${cleaned.slice(3)}`;
+  return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6, 9)}`;
+};
 
 export interface PortfolioHolding {
   symbol: string;
