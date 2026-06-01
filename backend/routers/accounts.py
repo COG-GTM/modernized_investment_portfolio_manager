@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from models.portfolio import AccountValidationResponse
+from schemas.validation import AccountValidationResponse
 from validation.portfolio import validate_account_number
 import re
 
