@@ -1,0 +1,689 @@
+{
+  "id": "cd1189f8-1d74-492b-a669-f2dcabadf107",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.history": {
+      "name": "history",
+      "schema": "",
+      "columns": {
+        "portfolio_id": {
+          "name": "portfolio_id",
+          "type": "varchar(8)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "varchar(8)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "time": {
+          "name": "time",
+          "type": "varchar(6)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "seq_no": {
+          "name": "seq_no",
+          "type": "varchar(4)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "record_type": {
+          "name": "record_type",
+          "type": "varchar(2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "action_code": {
+          "name": "action_code",
+          "type": "varchar(1)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "before_image": {
+          "name": "before_image",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "after_image": {
+          "name": "after_image",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reason_code": {
+          "name": "reason_code",
+          "type": "varchar(4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "process_date": {
+          "name": "process_date",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "process_user": {
+          "name": "process_user",
+          "type": "varchar(8)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "idx_history_portfolio_id": {
+          "name": "idx_history_portfolio_id",
+          "columns": [
+            {
+              "expression": "portfolio_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_history_date": {
+          "name": "idx_history_date",
+          "columns": [
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_history_record_type": {
+          "name": "idx_history_record_type",
+          "columns": [
+            {
+              "expression": "record_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_history_action_code": {
+          "name": "idx_history_action_code",
+          "columns": [
+            {
+              "expression": "action_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "fk_history_portfolio": {
+          "name": "fk_history_portfolio",
+          "tableFrom": "history",
+          "tableTo": "portfolios",
+          "columnsFrom": [
+            "portfolio_id"
+          ],
+          "columnsTo": [
+            "port_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "history_portfolio_id_date_time_seq_no_pk": {
+          "name": "history_portfolio_id_date_time_seq_no_pk",
+          "columns": [
+            "portfolio_id",
+            "date",
+            "time",
+            "seq_no"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "ck_history_record_type": {
+          "name": "ck_history_record_type",
+          "value": "\"history\".\"record_type\" IN ('PT', 'PS', 'TR')"
+        },
+        "ck_history_action_code": {
+          "name": "ck_history_action_code",
+          "value": "\"history\".\"action_code\" IN ('A', 'C', 'D')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.portfolios": {
+      "name": "portfolios",
+      "schema": "",
+      "columns": {
+        "port_id": {
+          "name": "port_id",
+          "type": "varchar(8)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_no": {
+          "name": "account_no",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "client_name": {
+          "name": "client_name",
+          "type": "varchar(30)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "client_type": {
+          "name": "client_type",
+          "type": "varchar(1)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "create_date": {
+          "name": "create_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_maint": {
+          "name": "last_maint",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(1)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "total_value": {
+          "name": "total_value",
+          "type": "numeric(15, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cash_balance": {
+          "name": "cash_balance",
+          "type": "numeric(15, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_user": {
+          "name": "last_user",
+          "type": "varchar(8)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_trans": {
+          "name": "last_trans",
+          "type": "varchar(8)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "idx_portfolio_status": {
+          "name": "idx_portfolio_status",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_portfolio_client_type": {
+          "name": "idx_portfolio_client_type",
+          "columns": [
+            {
+              "expression": "client_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "portfolios_port_id_account_no_pk": {
+          "name": "portfolios_port_id_account_no_pk",
+          "columns": [
+            "port_id",
+            "account_no"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "uq_portfolio_port_id": {
+          "name": "uq_portfolio_port_id",
+          "nullsNotDistinct": false,
+          "columns": [
+            "port_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "ck_portfolio_client_type": {
+          "name": "ck_portfolio_client_type",
+          "value": "\"portfolios\".\"client_type\" IN ('I', 'C', 'T')"
+        },
+        "ck_portfolio_status": {
+          "name": "ck_portfolio_status",
+          "value": "\"portfolios\".\"status\" IN ('A', 'C', 'S')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.positions": {
+      "name": "positions",
+      "schema": "",
+      "columns": {
+        "portfolio_id": {
+          "name": "portfolio_id",
+          "type": "varchar(8)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "investment_id": {
+          "name": "investment_id",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "numeric(15, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cost_basis": {
+          "name": "cost_basis",
+          "type": "numeric(15, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "market_value": {
+          "name": "market_value",
+          "type": "numeric(15, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "varchar(3)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(1)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_maint_date": {
+          "name": "last_maint_date",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_maint_user": {
+          "name": "last_maint_user",
+          "type": "varchar(8)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "idx_position_portfolio_id": {
+          "name": "idx_position_portfolio_id",
+          "columns": [
+            {
+              "expression": "portfolio_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_position_date": {
+          "name": "idx_position_date",
+          "columns": [
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_position_investment_id": {
+          "name": "idx_position_investment_id",
+          "columns": [
+            {
+              "expression": "investment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_position_status": {
+          "name": "idx_position_status",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "fk_position_portfolio": {
+          "name": "fk_position_portfolio",
+          "tableFrom": "positions",
+          "tableTo": "portfolios",
+          "columnsFrom": [
+            "portfolio_id"
+          ],
+          "columnsTo": [
+            "port_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "positions_portfolio_id_date_investment_id_pk": {
+          "name": "positions_portfolio_id_date_investment_id_pk",
+          "columns": [
+            "portfolio_id",
+            "date",
+            "investment_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "ck_position_status": {
+          "name": "ck_position_status",
+          "value": "\"positions\".\"status\" IN ('A', 'C', 'P')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.transactions": {
+      "name": "transactions",
+      "schema": "",
+      "columns": {
+        "date": {
+          "name": "date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "time": {
+          "name": "time",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "portfolio_id": {
+          "name": "portfolio_id",
+          "type": "varchar(8)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sequence_no": {
+          "name": "sequence_no",
+          "type": "varchar(6)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "investment_id": {
+          "name": "investment_id",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "type": {
+          "name": "type",
+          "type": "varchar(2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "numeric(15, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price": {
+          "name": "price",
+          "type": "numeric(15, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "amount": {
+          "name": "amount",
+          "type": "numeric(15, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "varchar(3)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(1)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "process_date": {
+          "name": "process_date",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "process_user": {
+          "name": "process_user",
+          "type": "varchar(8)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "idx_transaction_portfolio_id": {
+          "name": "idx_transaction_portfolio_id",
+          "columns": [
+            {
+              "expression": "portfolio_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_transaction_date": {
+          "name": "idx_transaction_date",
+          "columns": [
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_transaction_investment_id": {
+          "name": "idx_transaction_investment_id",
+          "columns": [
+            {
+              "expression": "investment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_transaction_type": {
+          "name": "idx_transaction_type",
+          "columns": [
+            {
+              "expression": "type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_transaction_status": {
+          "name": "idx_transaction_status",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "fk_transaction_portfolio": {
+          "name": "fk_transaction_portfolio",
+          "tableFrom": "transactions",
+          "tableTo": "portfolios",
+          "columnsFrom": [
+            "portfolio_id"
+          ],
+          "columnsTo": [
+            "port_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "transactions_date_time_portfolio_id_sequence_no_pk": {
+          "name": "transactions_date_time_portfolio_id_sequence_no_pk",
+          "columns": [
+            "date",
+            "time",
+            "portfolio_id",
+            "sequence_no"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "ck_transaction_type": {
+          "name": "ck_transaction_type",
+          "value": "\"transactions\".\"type\" IN ('BU', 'SL', 'TR', 'FE')"
+        },
+        "ck_transaction_status": {
+          "name": "ck_transaction_status",
+          "value": "\"transactions\".\"status\" IN ('P', 'D', 'F', 'R')"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
