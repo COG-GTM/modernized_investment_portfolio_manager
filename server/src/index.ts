@@ -8,7 +8,7 @@ const __dirname = dirname(__filename);
 
 // Load .env first, then .env.local (which overrides .env values).
 dotenv.config({ path: join(__dirname, "../.env") });
-dotenv.config({ path: join(__dirname, "../.env.local") });
+dotenv.config({ path: join(__dirname, "../.env.local"), override: true });
 
 const app = createApp();
 // Keep port 8000 so the frontend (src/services/api.ts) works unchanged.

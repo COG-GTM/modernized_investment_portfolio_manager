@@ -57,13 +57,17 @@ export function validateInvestmentType(investmentType: string | null | undefined
   return { valid: true, message: "Valid investment type" };
 }
 
-const MIN_AMOUNT = -9999999999999.99;
-const MAX_AMOUNT = 9999999999999.99;
+const AMOUNT_RANGE_MESSAGE =
+  "Amount must be between -9999999999999.99 and 9999999999999.99";
 
 /**
  * Validate amount is within range -9,999,999,999,999.99 to +9,999,999,999,999.99.
  * Mirrors Python's `Decimal(str(amount))` parsing: rejects null, empty, and
  * non-numeric strings; accepts numeric strings/numbers.
+ *
+ * The range comparison is done with BigInt (integer) arithmetic rather than
+ * `Number`, so values just outside the bound (e.g. "9999999999999.991") are not
+ * rounded back inside it — matching Python's exact `Decimal` comparison.
  */
 export function validateAmount(amount: string | number | null | undefined): ValidationResult {
   if (amount === null || amount === undefined) {
@@ -76,16 +80,20 @@ export function validateAmount(amount: string | number | null | undefined): Vali
     return { valid: false, message: "Amount must be a valid number" };
   }
 
-  const decimalAmount = Number(asString);
-  if (!Number.isFinite(decimalAmount)) {
-    return { valid: false, message: "Amount must be a valid number" };
-  }
+  // Compare |amount| against the bound using scaled integers (both bounds share
+  // the same magnitude, so the absolute value covers min and max).
+  const unsigned = asString.replace(/^[+-]/, "");
+  const [integerPart = "0", fractionalPart = ""] = unsigned.split(".");
+  const fractionalLength = Math.max(fractionalPart.length, 2);
+  const scale = 10n ** BigInt(fractionalLength);
+  const centsScale = 10n ** BigInt(fractionalLength - 2);
+  const absoluteAmount =
+    BigInt(integerPart || "0") * scale +
+    BigInt(fractionalPart.padEnd(fractionalLength, "0") || "0");
+  const maxAbsoluteAmount = 9999999999999n * scale + 99n * centsScale;
 
-  if (decimalAmount < MIN_AMOUNT || decimalAmount > MAX_AMOUNT) {
-    return {
-      valid: false,
-      message: `Amount must be between ${MIN_AMOUNT} and ${MAX_AMOUNT}`,
-    };
+  if (absoluteAmount > maxAbsoluteAmount) {
+    return { valid: false, message: AMOUNT_RANGE_MESSAGE };
   }
 
   return { valid: true, message: "Valid amount" };
