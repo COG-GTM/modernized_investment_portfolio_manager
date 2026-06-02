@@ -14,6 +14,21 @@ import {
  * read-only endpoints so the DB layer can be exercised in isolation.
  */
 const app = express();
+
+// Permissive CORS, mirroring the FastAPI backend (`backend/app/main.py`) so the
+// Vite dev frontend can reach this scaffold during full-stack development.
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", req.headers.origin ?? "*");
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === "OPTIONS") {
+    res.sendStatus(204);
+    return;
+  }
+  next();
+});
+
 app.use(express.json());
 
 const PORT = process.env.PORT ?? 8000;

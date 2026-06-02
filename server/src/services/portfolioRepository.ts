@@ -91,6 +91,8 @@ export async function getHistory(
 
 export interface PortfolioHoldingView {
   symbol: string;
+  /** Display name; falls back to `symbol` (the DB has no security-name column). */
+  name: string;
   shares: number;
   currentPrice: number;
   marketValue: number;
@@ -107,6 +109,8 @@ export interface PortfolioSummaryView {
   totalGainLoss: number;
   totalGainLossPercent: number;
   holdings: PortfolioHoldingView[];
+  /** ISO timestamp of the portfolio's last maintenance, for the frontend's `lastUpdated`. */
+  lastUpdated: string;
 }
 
 /**
@@ -139,6 +143,10 @@ export async function getPortfolioSummary(
 
     return {
       symbol: pos.investmentId,
+      // The legacy DB has no security-name column (the Python router hard-coded
+      // display names). Fall back to the symbol so the contract shape is intact;
+      // resolving real names is the routes layer's responsibility.
+      name: pos.investmentId,
       shares: shares.toNumber(),
       currentPrice,
       marketValue: marketValue.toNumber(),
@@ -161,6 +169,9 @@ export async function getPortfolioSummary(
     totalGainLoss: totalGainLoss.toNumber(),
     totalGainLossPercent,
     holdings,
+    lastUpdated: portfolio.lastMaint
+      ? new Date(portfolio.lastMaint).toISOString()
+      : new Date().toISOString(),
   };
 }
 

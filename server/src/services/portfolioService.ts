@@ -3,6 +3,7 @@ import type { Database } from "./types.js";
 import {
   portfolios,
   positions,
+  transactions,
   history,
   type PositionRow,
   type TransactionRow,
@@ -65,7 +66,12 @@ export class PortfolioService {
           await this.processFeeTransaction(tx, transaction);
         }
 
-        transitionStatus(transaction, "D", transaction.processUser ?? "SYSTEM");
+        if (!transitionStatus(transaction, "D", transaction.processUser ?? "SYSTEM")) {
+          throw new Error(
+            `Invalid status transition to 'D' from '${transaction.status}'`,
+          );
+        }
+        await this.persistTransactionStatus(tx, transaction);
 
         await this.updatePortfolioTotalValue(tx, transaction.portfolioId);
       });
@@ -216,6 +222,34 @@ export class PortfolioService {
       db: tx,
     });
     await tx.insert(history).values(auditRecord);
+  }
+
+  /**
+   * Persist the transaction's status/process fields back to the `transactions`
+   * row. In the Python service the `transaction` is a session-attached object,
+   * so the final `db.commit()` durably stores the `'D'` status; here we issue an
+   * explicit UPDATE (by primary key) inside the same Drizzle transaction so a
+   * processed transaction cannot be re-selected as pending and reprocessed.
+   */
+  private async persistTransactionStatus(
+    tx: Database,
+    transaction: TransactionRow,
+  ): Promise<void> {
+    await tx
+      .update(transactions)
+      .set({
+        status: transaction.status,
+        processDate: transaction.processDate,
+        processUser: transaction.processUser,
+      })
+      .where(
+        and(
+          eq(transactions.date, transaction.date),
+          eq(transactions.time, transaction.time),
+          eq(transactions.portfolioId, transaction.portfolioId),
+          eq(transactions.sequenceNo, transaction.sequenceNo),
+        ),
+      );
   }
 
   /** Recompute and persist a portfolio's total value. Mirrors `Portfolio.update_total_value`. */
