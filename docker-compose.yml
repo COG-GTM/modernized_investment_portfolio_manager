@@ -1,0 +1,54 @@
+# Multi-service stack for the Modernized Investment Portfolio Manager.
+#   backend  -> FastAPI API (runs migrations + seed on startup, SQLite in a volume)
+#   frontend -> React build served by nginx, proxies /api to the backend
+#
+# Usage:
+#   docker compose up --build
+#   open http://localhost:8080
+#
+# NOTE: the app's data model targets SQLite (composite PKs with single-column
+# FKs). A Postgres service is included below but commented out: switching to it
+# requires an app-level schema change (Postgres enforces FK->unique key), which
+# is a design decision left to the team. See CONTAINERIZATION.md.
+services:
+  backend:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: sqlite:////data/portfolio.db
+    volumes:
+      - backend-data:/data
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      args:
+        VITE_API_BASE_URL: /api
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+  # ---- Optional Postgres backend (requires schema change; see notes above) ----
+  # db:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_USER: portfolio
+  #     POSTGRES_PASSWORD: portfolio
+  #     POSTGRES_DB: portfolio
+  #   volumes:
+  #     - db-data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U portfolio -d portfolio"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 10
+
+volumes:
+  backend-data:
+  # db-data:
