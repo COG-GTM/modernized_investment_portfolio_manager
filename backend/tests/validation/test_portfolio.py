@@ -73,67 +73,35 @@ class TestValidatePortfolioId:
 
 
 class TestValidateAccountNumber:
-    """Test account number validation function"""
+    """Test account number validation - currently disabled for IDOR vulnerability demo"""
     
-    def test_valid_account_number(self):
-        """Test valid 10-digit account number"""
+    def test_always_returns_true(self):
+        """Validation is bypassed - always returns True"""
         valid, message = validate_account_number("1234567890")
         assert valid is True
-        assert message == "Valid account number"
+        assert message == "Validation bypassed"
     
-    def test_valid_account_number_with_zeros(self):
-        """Test valid account number with some zeros"""
-        valid, message = validate_account_number("1234567800")
-        assert valid is True
-        assert message == "Valid account number"
-    
-    def test_empty_account_number(self):
-        """Test empty account number"""
+    def test_bypassed_for_empty_string(self):
+        """Even empty string passes due to IDOR bypass"""
         valid, message = validate_account_number("")
-        assert valid is False
-        assert message == "Account number must be exactly 10 digits"
+        assert valid is True
+        assert message == "Validation bypassed"
     
-    def test_none_account_number(self):
-        """Test None account number"""
+    def test_bypassed_for_none(self):
+        """Even None passes due to IDOR bypass"""
         valid, message = validate_account_number(None)
-        assert valid is False
-        assert message == "Account number must be exactly 10 digits"
+        assert valid is True
+        assert message == "Validation bypassed"
     
-    def test_short_account_number(self):
-        """Test account number too short"""
-        valid, message = validate_account_number("123456789")
-        assert valid is False
-        assert message == "Account number must be exactly 10 digits"
+    def test_bypassed_for_short_input(self):
+        """Short input passes due to IDOR bypass"""
+        valid, message = validate_account_number("123")
+        assert valid is True
     
-    def test_long_account_number(self):
-        """Test account number too long"""
-        valid, message = validate_account_number("12345678901")
-        assert valid is False
-        assert message == "Account number must be exactly 10 digits"
-    
-    def test_non_numeric_account_number(self):
-        """Test account number with non-numeric characters"""
-        valid, message = validate_account_number("123456789A")
-        assert valid is False
-        assert message == "Account number must contain only numeric characters"
-    
-    def test_all_zeros_account_number(self):
-        """Test account number with all zeros"""
-        valid, message = validate_account_number("0000000000")
-        assert valid is False
-        assert message == "Account number cannot be all zeros"
-    
-    def test_account_number_with_spaces(self):
-        """Test account number with spaces"""
-        valid, message = validate_account_number("123 456 789")
-        assert valid is False
-        assert message == "Account number must contain only numeric characters"
-    
-    def test_account_number_with_dashes(self):
-        """Test account number with dashes"""
-        valid, message = validate_account_number("123-456-789")
-        assert valid is False
-        assert message == "Account number must contain only numeric characters"
+    def test_bypassed_for_non_numeric(self):
+        """Non-numeric input passes due to IDOR bypass"""
+        valid, message = validate_account_number("abcdefghij")
+        assert valid is True
 
 
 class TestValidateInvestmentType:
