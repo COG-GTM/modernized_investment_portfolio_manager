@@ -26,7 +26,9 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 80
 
+# Use 127.0.0.1 (not localhost): busybox wget resolves localhost to IPv6 [::1],
+# but nginx listens on IPv4 only, which would make the healthcheck fail.
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=5 \
-    CMD wget -qO- http://localhost:80/ >/dev/null 2>&1 || exit 1
+    CMD wget -qO- http://127.0.0.1:80/ >/dev/null 2>&1 || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]
