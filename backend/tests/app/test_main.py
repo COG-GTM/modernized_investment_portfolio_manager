@@ -35,5 +35,5 @@ class TestAppConfiguration:
         assert "/api/transactions/{account_number}" in routes
 
     def test_cors_middleware_present(self):
-        middleware_classes = [type(m).__name__ for m in app.user_middleware]
-        assert any("CORS" in name or "cors" in name.lower() for name in middleware_classes) or True
+        middleware_classes = [m.cls.__name__ for m in app.user_middleware]
+        assert "CORSMiddleware" in middleware_classes
