@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+backend/
+.git/
+.gitignore
+Dockerfile
+.dockerignore
+docker-compose.yml
+*.log
+.vscode/
+.idea/
+.DS_Store
+README.md
+CONTAINERIZATION.md
+.github/
