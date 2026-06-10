@@ -1,6 +1,6 @@
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import Session
 from models.database import Base
 
 
@@ -15,9 +15,19 @@ def engine():
 def db_session(engine):
     connection = engine.connect()
     transaction = connection.begin()
-    Session = sessionmaker(bind=connection)
-    session = Session()
+    session = Session(bind=connection)
+
+    # Use SAVEPOINT so that session.commit() inside code under test
+    # only commits the savepoint, preserving outer transaction for rollback.
+    session.begin_nested()
+
+    @event.listens_for(session, "after_transaction_end")
+    def restart_savepoint(sess, trans):
+        if trans.nested and not trans._parent.nested:
+            sess.begin_nested()
+
     yield session
     session.close()
-    transaction.rollback()
+    if transaction.is_active:
+        transaction.rollback()
     connection.close()
