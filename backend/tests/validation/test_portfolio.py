@@ -209,3 +209,11 @@ class TestValidateAmount:
     def test_boundary_just_under_min(self):
         valid, message = validate_amount("-9999999999999.999")
         assert valid is False
+
+    def test_small_positive_amount(self):
+        valid, message = validate_amount("0.01")
+        assert valid is True
+
+    def test_small_negative_amount(self):
+        valid, message = validate_amount("-0.01")
+        assert valid is True
