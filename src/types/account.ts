@@ -31,3 +31,17 @@ export interface PortfolioSummary {
   holdings: PortfolioHolding[];
   lastUpdated: string;
 }
+
+export interface SectorAllocation {
+  sector: string;
+  marketValue: number;
+  allocationPercent: number;
+  holdingsCount: number;
+}
+
+export interface DiversificationSummary {
+  accountNumber: string;
+  totalValue: number;
+  sectors: SectorAllocation[];
+  lastUpdated: string;
+}

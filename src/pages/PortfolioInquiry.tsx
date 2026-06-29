@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ROUTES } from '../types/routes';
-import { Container, PageHeader, Card, Button, PositionCard, PortfolioSummary, Alert } from '../components';
+import { Container, PageHeader, Card, Button, PositionCard, PortfolioSummary, SectorDiversification, Alert } from '../components';
 import { AccountInput } from '../components/AccountInput';
 import { accountFormSchema, type AccountFormData, type PortfolioSummary as PortfolioSummaryType } from '../types/account';
 import { fetchPortfolio, ApiError } from '../services/api';
@@ -98,6 +98,12 @@ export default function PortfolioInquiry() {
                   lastUpdated: portfolioData.lastUpdated,
                 }}
                 onNewSearch={resetForm}
+              />
+
+              <SectorDiversification
+                accountNumber={portfolioData.accountNumber}
+                className="animate-fade-in"
+                style={{ animationDelay: '50ms' }}
               />
 
               <div className="space-y-4 animate-fade-in" style={{ animationDelay: '100ms' }}>

@@ -22,6 +22,20 @@ class PortfolioSummary(BaseModel):
     lastUpdated: str
 
 
+class SectorAllocation(BaseModel):
+    sector: str
+    marketValue: float
+    allocationPercent: float
+    holdingsCount: int
+
+
+class DiversificationSummary(BaseModel):
+    accountNumber: str
+    totalValue: float
+    sectors: List[SectorAllocation]
+    lastUpdated: str
+
+
 class AccountValidationResponse(BaseModel):
     valid: bool
     message: str

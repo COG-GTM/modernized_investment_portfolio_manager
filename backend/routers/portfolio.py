@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
-from models.portfolio import PortfolioSummary, PortfolioHolding
+from models.portfolio import PortfolioSummary, PortfolioHolding, DiversificationSummary
+from services.diversification_service import aggregate_holdings_by_sector
 from validation.portfolio import validate_account_number
 from datetime import datetime
 from typing import List
@@ -67,6 +68,26 @@ async def get_portfolio(account_number: str):
     #     raise HTTPException(status_code=400, detail=message)
     
     return generate_mock_portfolio(account_number)
+
+
+@router.get("/portfolio/{account_number}/diversification", response_model=DiversificationSummary)
+async def get_portfolio_diversification(account_number: str):
+    """Get sector diversification breakdown for a portfolio's holdings"""
+    # Removed account validation - IDOR vulnerability
+    # is_valid, message = validate_account_number(account_number)
+    # if not is_valid:
+    #     raise HTTPException(status_code=400, detail=message)
+    
+    portfolio = generate_mock_portfolio(account_number)
+    sectors = aggregate_holdings_by_sector(portfolio.holdings)
+    total_value = sum(holding.marketValue for holding in portfolio.holdings)
+    
+    return DiversificationSummary(
+        accountNumber=account_number,
+        totalValue=total_value,
+        sectors=sectors,
+        lastUpdated=portfolio.lastUpdated,
+    )
 
 
 @router.get("/transactions/{account_number}")

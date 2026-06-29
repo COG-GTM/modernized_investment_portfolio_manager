@@ -1,4 +1,4 @@
-import type { PortfolioSummary } from '../types/account';
+import type { PortfolioSummary, DiversificationSummary } from '../types/account';
 
 const API_BASE_URL = 'http://localhost:8000/api';
 
@@ -35,6 +35,31 @@ export async function fetchPortfolio(accountNumber: string): Promise<PortfolioSu
       throw new ApiError('Unable to connect to the server. Please ensure the backend is running.');
     }
     throw new ApiError('An unexpected error occurred while fetching portfolio data.');
+  }
+}
+
+export async function fetchPortfolioDiversification(accountNumber: string): Promise<DiversificationSummary> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/portfolio/${accountNumber}/diversification`);
+    
+    if (!response.ok) {
+      if (response.status === 400) {
+        const errorData = await response.json();
+        throw new ApiError(errorData.detail || 'Invalid account number', response.status, response.statusText);
+      }
+      throw new ApiError(`HTTP ${response.status}: ${response.statusText}`, response.status, response.statusText);
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new ApiError('Unable to connect to the server. Please ensure the backend is running.');
+    }
+    throw new ApiError('An unexpected error occurred while fetching diversification data.');
   }
 }
 
