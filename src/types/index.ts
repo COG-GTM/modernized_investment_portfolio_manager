@@ -26,4 +26,10 @@ export interface Portfolio {
   lastUpdated: string;
 }
 
-export type { PortfolioHolding, PortfolioSummary, AccountFormData } from './account';
+export type {
+  PortfolioHolding,
+  PortfolioSummary,
+  SectorAllocation,
+  DiversificationSummary,
+  AccountFormData,
+} from './account';
