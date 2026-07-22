@@ -1,10 +1,20 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+from models import SessionLocal, Portfolio, Transaction
 from models.portfolio import PortfolioSummary, PortfolioHolding
 from validation.portfolio import validate_account_number
 from datetime import datetime
 from typing import List
 
 router = APIRouter(prefix="/api", tags=["portfolio"])
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 def generate_mock_portfolio(account_number: str) -> PortfolioSummary:
@@ -70,15 +80,35 @@ async def get_portfolio(account_number: str):
 
 
 @router.get("/transactions/{account_number}")
-async def get_transactions(account_number: str):
-    """Get transaction history for an account (placeholder)"""
+async def get_transactions(account_number: str, db: Session = Depends(get_db)):
+    """Get transaction history for an account"""
     # Removed account validation - IDOR vulnerability
     # is_valid, message = validate_account_number(account_number)
     # if not is_valid:
     #     raise HTTPException(status_code=400, detail=message)
-    
+
+    portfolio = (
+        db.query(Portfolio)
+        .filter(Portfolio.account_no == account_number)
+        .first()
+    )
+
+    if portfolio is None:
+        return {
+            "accountNumber": account_number,
+            "transactions": [],
+            "message": "No portfolio found for this account.",
+        }
+
+    transactions = (
+        db.query(Transaction)
+        .filter(Transaction.portfolio_id == portfolio.port_id)
+        .order_by(Transaction.date.desc(), Transaction.time.desc())
+        .all()
+    )
+
     return {
         "accountNumber": account_number,
-        "transactions": [],
-        "message": "Transaction history endpoint - placeholder implementation"
+        "transactions": [t.to_dict() for t in transactions],
+        "message": f"Found {len(transactions)} transaction(s) for this account.",
     }
