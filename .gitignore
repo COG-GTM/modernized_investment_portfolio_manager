@@ -40,3 +40,7 @@ logs/
 *.db
 *.sqlite
 *.sqlite3
+
+# Playwright
+playwright-report/
+test-results/
