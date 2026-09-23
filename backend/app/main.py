@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import psycopg
 from routers import portfolio, accounts
+from techfest_batch.router import router as batch_router
 
 app = FastAPI(
     title="Portfolio Management API",
@@ -20,6 +21,7 @@ app.add_middleware(
 
 app.include_router(portfolio.router)
 app.include_router(accounts.router)
+app.include_router(batch_router)
 
 @app.get("/healthz")
 async def healthz():

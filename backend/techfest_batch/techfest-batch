@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Thin wrapper: ./techfest_batch/techfest-batch check-retry-safety   (run from backend/)
+set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$HERE/.."
+if [ -f .venv/bin/activate ]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+exec python -m techfest_batch "$@"

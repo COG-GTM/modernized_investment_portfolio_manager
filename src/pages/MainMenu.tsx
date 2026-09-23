@@ -97,7 +97,8 @@ export default function MainMenu() {
               <p className="text-sm text-muted-foreground">
                 Navigation: Use <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">↑↓</kbd> arrow keys or 
                 shortcuts <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">1</kbd>, 
-                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">2</kbd>. 
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">2</kbd>, 
+                <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">3</kbd>. 
                 Press <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">Enter</kbd> to select, 
                 <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono shadow-sm">Esc</kbd> to reset.
               </p>

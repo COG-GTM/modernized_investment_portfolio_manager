@@ -12,7 +12,7 @@ export interface MenuState {
   isKeyboardNavigation: boolean;
 }
 
-export type MenuOptionId = 'portfolio' | 'history';
+export type MenuOptionId = 'portfolio' | 'history' | 'batch';
 
 export const MENU_OPTIONS: MenuOption[] = [
   {
@@ -28,5 +28,12 @@ export const MENU_OPTIONS: MenuOption[] = [
     shortcut: '2',
     description: 'Review your investment transaction history and activity',
     route: '/transaction-history'
+  },
+  {
+    id: 'batch',
+    label: 'Batch Completions',
+    shortcut: '3',
+    description: 'Synthetic demonstration: end-of-day batch jobs, retry attempts and completion records',
+    route: '/batch-completions'
   }
 ];
