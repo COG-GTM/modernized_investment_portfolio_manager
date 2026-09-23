@@ -171,3 +171,20 @@ class TestRetryIdempotency:
         assert ra.json()["completion_id"] != rb.json()["completion_id"]
         assert rb.json()["deduplicated"] is False
         assert len(_rows(JOB)) == 1 and len(_rows(OTHER_JOB)) == 1
+
+    def test_storage_rejects_raw_insert_bypassing_dedup_key(self, batch_db):
+        """Writers that bypass the ORM (NULL dedup_key) are still rejected by storage."""
+        from sqlalchemy import text
+        from sqlalchemy.exc import IntegrityError
+
+        _seed()
+        with db.session_scope() as session:
+            service.complete_job(session, JOB, str(uuid.uuid4()), 1)
+        with db.session_scope() as session:
+            with pytest.raises(IntegrityError):
+                session.execute(text(
+                    "INSERT INTO batch_completions (completion_id, job_id, attempt, request_id, completed_at, "
+                    "code_revision, dedup_key) VALUES (:cid, :job, 2, :rid, CURRENT_TIMESTAMP, 'x', NULL)"
+                ), {"cid": str(uuid.uuid4()), "job": JOB, "rid": str(uuid.uuid4())})
+                session.commit()
+        assert len(_rows()) == 1

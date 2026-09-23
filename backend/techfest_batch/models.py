@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String
+from sqlalchemy import DDL, Column, DateTime, ForeignKey, Index, Integer, String, event
 from sqlalchemy.orm import relationship
 
 from models.database import Base
@@ -81,3 +81,25 @@ class BatchCompletion(Base):
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
             "code_revision": self.code_revision,
         }
+
+
+# Storage-level guard for every writer (ORM, raw SQL, bulk loads), independent of dedup_key:
+# a second completion row for a job that already has one is rejected, and a non-NULL key must
+# equal the job id. Legacy duplicate rows that predate the guard are left untouched.
+ONE_COMPLETION_PER_JOB_TRIGGER = "trg_batch_completions_one_per_job"
+ONE_COMPLETION_PER_JOB_TRIGGER_SQL = f"""
+CREATE TRIGGER IF NOT EXISTS {ONE_COMPLETION_PER_JOB_TRIGGER}
+BEFORE INSERT ON batch_completions
+FOR EACH ROW
+WHEN EXISTS (SELECT 1 FROM batch_completions WHERE job_id = NEW.job_id)
+     OR (NEW.dedup_key IS NOT NULL AND NEW.dedup_key <> NEW.job_id)
+BEGIN
+    SELECT RAISE(ABORT, 'UNIQUE constraint failed: one completion per batch job');
+END
+"""
+
+event.listen(
+    BatchCompletion.__table__,
+    "after_create",
+    DDL(ONE_COMPLETION_PER_JOB_TRIGGER_SQL).execute_if(dialect="sqlite"),
+)
