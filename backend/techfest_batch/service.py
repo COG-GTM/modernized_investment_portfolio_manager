@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from techfest_batch.config import FAULT_PRE_ACK_STALL, settings
@@ -36,16 +37,24 @@ def pre_ack_stall_ms(job: BatchJob, attempt: int) -> int:
     return settings.stall_ms
 
 
+def _existing_completion(session: Session, job_id: str) -> BatchCompletion | None:
+    """Earliest persisted completion for the logical job (the completion identity to return on retry)."""
+    return session.scalar(
+        select(BatchCompletion)
+        .where(BatchCompletion.job_id == job_id)
+        .order_by(BatchCompletion.completed_at, BatchCompletion.attempt)
+        .limit(1)
+    )
+
+
 def complete_job(session: Session, job_id: str, request_id: str, attempt: int) -> CompletionResult:
     job = session.get(BatchJob, job_id)
     if job is None:
         raise JobNotFound(job_id)
 
-    replayed = session.scalar(
-        select(BatchCompletion).where(BatchCompletion.request_id == request_id)
-    )
-    if replayed is not None:
-        return CompletionResult(replayed, deduplicated=True)
+    existing = _existing_completion(session, job.job_id)
+    if existing is not None:
+        return CompletionResult(existing, deduplicated=True)
 
     completion = BatchCompletion(
         completion_id=str(uuid.uuid4()),
@@ -57,7 +66,16 @@ def complete_job(session: Session, job_id: str, request_id: str, attempt: int) -
     )
     job.status = "COMPLETED"
     session.add(completion)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        # Lost the race to a concurrent request for the same job: the unique dedup key on
+        # batch_completions rejected our row, so the winner's completion is the record.
+        session.rollback()
+        existing = _existing_completion(session, job.job_id)
+        if existing is None:
+            raise
+        return CompletionResult(existing, deduplicated=True)
 
     stall = pre_ack_stall_ms(job, attempt)
     if stall:

@@ -10,6 +10,10 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+def _dedup_key_from_job(context) -> str:
+    return context.get_current_parameters()["job_id"]
+
+
 class BatchJob(Base):
     __tablename__ = "batch_jobs"
 
@@ -56,10 +60,17 @@ class BatchCompletion(Base):
     request_id = Column(String(36), nullable=False)
     completed_at = Column(DateTime, nullable=False, default=utcnow)
     code_revision = Column(String(40), nullable=False)
+    # Idempotency key: the logical job id. Unique in storage so retries, concurrent requests and
+    # restarts can never persist a second completion. Nullable only for legacy rows that predate
+    # the constraint (SQLite unique indexes ignore NULLs).
+    dedup_key = Column(String(64), nullable=True, default=_dedup_key_from_job)
 
     job = relationship("BatchJob", back_populates="completions")
 
-    __table_args__ = (Index("idx_batch_completions_job_id", "job_id"),)
+    __table_args__ = (
+        Index("idx_batch_completions_job_id", "job_id"),
+        Index("uq_batch_completions_dedup_key", "dedup_key", unique=True),
+    )
 
     def to_dict(self) -> dict:
         return {
