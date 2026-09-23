@@ -150,9 +150,9 @@ export default function BatchCompletions() {
                 <h3 className="text-sm font-semibold mb-2">Saved check probes (from last run)</h3>
                 <ul className="space-y-1">
                   {lastCheck.probes.map((p) => (
-                    <li key={p.name} className="flex items-center gap-2 text-sm">
+                    <li key={p.name} className="flex items-start gap-2 text-sm min-w-0">
                       <Badge tone={p.passed ? 'ok' : 'bad'}>{p.passed ? 'PASS' : 'FAIL'}</Badge>
-                      <span className="font-mono text-xs">{p.name}</span>
+                      <span className="font-mono text-xs break-all min-w-0">{p.name}</span>
                     </li>
                   ))}
                 </ul>
