@@ -23,6 +23,12 @@ WACI_SCRIPT = SQL_DIR / "esg_waci_v1.sql"
 
 FEED_COLUMNS = ["as_of_month", "investment_id", "scope1_tco2e", "scope2_tco2e", "revenue_musd"]
 AS_OF_MONTH_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
+FEED_FILE_MONTH_RE = re.compile(r"esg_emissions_(\d{4}-\d{2})")
+# Plain decimal literal only: Python's Decimal() also accepts "1_000", full-width digits, "Infinity" etc.
+DECIMAL_LITERAL_RE = re.compile(r"^[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][+-]?[0-9]+)?$", re.ASCII)
+# stg_esg_emissions stores Numeric(18,4): 14 integer digits, 4 decimals.
+NUMERIC_MAX_EXCLUSIVE = Decimal("1e14")
+NUMERIC_SMALLEST_NONZERO = Decimal("0.0001")
 MIN_REASON_LENGTH = 10
 
 
@@ -62,6 +68,9 @@ def _parse_decimal(raw: Optional[str], column: str, errors: List[str], *, requir
         if required:
             errors.append(f"{column} missing")
         return None
+    if not DECIMAL_LITERAL_RE.match(value):
+        errors.append(f"{column} is not numeric: {value!r}")
+        return None
     try:
         parsed = Decimal(value)
     except InvalidOperation:
@@ -69,6 +78,12 @@ def _parse_decimal(raw: Optional[str], column: str, errors: List[str], *, requir
         return None
     if parsed.is_nan() or parsed.is_infinite():
         errors.append(f"{column} is not a finite number")
+        return None
+    if abs(parsed) >= NUMERIC_MAX_EXCLUSIVE:
+        errors.append(f"{column} exceeds the Numeric(18,4) range: {value!r}")
+        return None
+    if parsed != 0 and abs(parsed) < NUMERIC_SMALLEST_NONZERO:
+        errors.append(f"{column} is below the Numeric(18,4) precision and would be stored as 0: {value!r}")
         return None
     if minimum is not None and parsed < minimum:
         errors.append(f"{column} must be >= {minimum}, got {parsed}")
@@ -79,17 +94,30 @@ def _parse_decimal(raw: Optional[str], column: str, errors: List[str], *, requir
     return parsed
 
 
-def validate_feed_row(row: dict) -> tuple[Optional[dict], List[str]]:
-    """Return (clean_row, errors). clean_row is None when there are errors."""
+def validate_feed_row(row: dict, expected_month: Optional[str] = None) -> tuple[Optional[dict], List[str]]:
+    """Return (clean_row, errors). clean_row is None when there are errors.
+
+    expected_month is the month derived from the file name (esg_emissions_YYYY-MM.csv);
+    when known, rows for any other month are rejected so a mis-dated file cannot
+    overwrite another month's staging rows.
+    """
     errors: List[str] = []
+    if None in row:
+        extra = row[None] if isinstance(row[None], list) else [row[None]]
+        errors.append(f"wrong column count: {len(FEED_COLUMNS) + len(extra)} values for {len(FEED_COLUMNS)} columns")
+        return None, errors
     as_of_month = (row.get("as_of_month") or "").strip()
     if not AS_OF_MONTH_RE.match(as_of_month):
         errors.append(f"as_of_month must be YYYY-MM, got {as_of_month!r}")
+    elif expected_month and as_of_month != expected_month:
+        errors.append(f"as_of_month {as_of_month} does not match the file month {expected_month}")
     investment_id = (row.get("investment_id") or "").strip()
     if not investment_id:
         errors.append("investment_id missing")
     elif len(investment_id) > 10:
         errors.append("investment_id longer than 10 characters")
+    elif not investment_id.isprintable() or any(ch.isspace() for ch in investment_id):
+        errors.append("investment_id contains whitespace or non-printable characters")
     scope1 = _parse_decimal(row.get("scope1_tco2e"), "scope1_tco2e", errors, required=True, minimum=Decimal("0"))
     scope2 = _parse_decimal(row.get("scope2_tco2e"), "scope2_tco2e", errors, required=True, minimum=Decimal("0"))
     revenue = _parse_decimal(row.get("revenue_musd"), "revenue_musd", errors, required=True, positive=True)
@@ -128,7 +156,13 @@ def load_esg_feed(db: Session, path: str | Path) -> LoadResult:
             skipped=True,
         )
 
-    reader = csv.DictReader(content.decode("utf-8-sig").splitlines())
+    try:
+        decoded = content.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise EsgFeedError(f"Feed file is not valid UTF-8 (byte offset {exc.start}): {path.name}") from exc
+    if "\x00" in decoded:
+        raise EsgFeedError(f"Feed file contains NUL bytes; expected a UTF-8 CSV: {path.name}")
+    reader = csv.DictReader(decoded.splitlines())
     header = [h.strip() for h in (reader.fieldnames or [])]
     missing = [c for c in FEED_COLUMNS if c not in header]
     if missing:
@@ -146,13 +180,17 @@ def load_esg_feed(db: Session, path: str | Path) -> LoadResult:
     db.add(batch)
     db.flush()
 
+    month_match = FEED_FILE_MONTH_RE.search(path.name)
+    expected_month = month_match.group(1) if month_match else None
+
     seen: set[tuple[str, str]] = set()
     months: set[str] = set()
     rejects: List[dict] = []
     loaded = 0
-    for row_no, raw in enumerate(reader, start=2):
-        raw = {(k or "").strip(): v for k, v in raw.items()}
-        clean, errors = validate_feed_row(raw)
+    for raw in reader:
+        row_no = reader.line_num  # physical line in the file; blank lines are skipped by csv but still counted
+        raw = {(k.strip() if isinstance(k, str) else k): v for k, v in raw.items()}
+        clean, errors = validate_feed_row(raw, expected_month)
         if clean:
             key = (clean["as_of_month"], clean["investment_id"])
             if key in seen:
@@ -165,7 +203,7 @@ def load_esg_feed(db: Session, path: str | Path) -> LoadResult:
             db.add(EsgLoadReject(
                 load_batch_id=batch.batch_id,
                 source_row_no=row_no,
-                raw_row=json.dumps(raw),
+                raw_row=json.dumps({(k if k is not None else "_extra"): v for k, v in raw.items()}),
                 reason=reason,
                 rejected_at=now,
             ))
