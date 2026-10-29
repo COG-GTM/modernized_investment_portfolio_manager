@@ -36,10 +36,13 @@ class TestGetEsg:
         assert response.status_code == 404
         assert "not found" in response.json()["detail"]
 
-    def test_known_account_without_metric_404(self, client):
+    def test_known_account_without_metric_returns_empty_payload(self, client):
         response = client.get(ESG_URL)
-        assert response.status_code == 404
-        assert "No carbon intensity metric" in response.json()["detail"]
+        assert response.status_code == 200
+        body = response.json()
+        assert body["has_metric"] is False
+        assert body["source"] == "none"
+        assert body["effective_value"] is None
 
 
 class TestOverride:
@@ -89,9 +92,9 @@ class TestOverride:
         response = computed.put("/api/portfolio/0000000000/esg/override", json={"value": 1, "reason": VALID_REASON})
         assert response.status_code == 404
 
-    def test_override_without_metric_422(self, client):
+    def test_override_without_metric_409(self, client):
         response = client.put(f"{ESG_URL}/override", json={"value": 1, "reason": VALID_REASON})
-        assert response.status_code == 422
+        assert response.status_code == 409
         assert "load the ESG feed" in response.json()["detail"]
 
 
@@ -105,9 +108,9 @@ class TestClearOverride:
         assert body["effective_value"] == pytest.approx(1.313615, abs=1e-5)
         assert body["override"] is None
 
-    def test_clear_without_override_422(self, computed):
+    def test_clear_without_override_409(self, computed):
         response = computed.request("DELETE", f"{ESG_URL}/override", json={"reason": "Nothing to clear here"})
-        assert response.status_code == 422
+        assert response.status_code == 409
         assert "no override to clear" in response.json()["detail"]
 
     def test_clear_requires_reason(self, computed):

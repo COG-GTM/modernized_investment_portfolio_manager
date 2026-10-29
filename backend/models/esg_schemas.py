@@ -13,20 +13,23 @@ class EsgOverrideDetails(BaseModel):
 
 
 class EsgMetricResponse(BaseModel):
+    """Metric payload. has_metric is False (and the metric fields null) for a known account
+    that has no computed month yet, so clients can tell "no data" apart from an unknown account (404)."""
     account_number: str
     portfolio_id: str
-    as_of_month: str
+    has_metric: bool = True
+    as_of_month: Optional[str]
     unit: str = "tCO2e per $M revenue"
     computed_value: Optional[float]
     effective_value: Optional[float]
-    source: Literal["computed", "override"]
-    coverage_pct: float
-    computed_at: datetime
+    source: Literal["computed", "override", "none"]
+    coverage_pct: Optional[float]
+    computed_at: Optional[datetime]
     override: Optional[EsgOverrideDetails] = None
 
 
 class EsgOverrideRequest(BaseModel):
-    value: float = Field(..., ge=0, allow_inf_nan=False, description="Override WACI in tCO2e per $M revenue")
+    value: float = Field(..., ge=0, strict=True, allow_inf_nan=False, description="Override WACI in tCO2e per $M revenue")
     reason: str = Field(..., min_length=10, description="Why the computed value is being overridden")
 
 
