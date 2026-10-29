@@ -118,6 +118,7 @@ def test_rerun_is_idempotent_and_preserves_override(seeded_db):
 
 def test_only_matching_month_is_used(db, tmp_path):
     add_portfolio(db)
+    add_position(db, "AAA", "100", on=date(2026, 9, 30))
     add_position(db, "AAA", "100")
     load_esg_feed(db, write_feed(tmp_path, ["2026-09,AAA,100,0,10"], name="sep.csv"))
     load_esg_feed(db, write_feed(tmp_path, ["2026-10,AAA,200,0,10"], name="oct.csv"))
