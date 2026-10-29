@@ -12,11 +12,11 @@ import csv
 import hashlib
 import os
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
-from decimal import Decimal, InvalidOperation, localcontext
+from decimal import Decimal, localcontext
 from pathlib import Path
-from typing import List, Optional, Sequence, Union
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -59,11 +59,11 @@ class EsgFeedError(Exception):
 
 @dataclass
 class LoadResult:
-    batch_id: Optional[int]
+    batch_id: int | None
     file_path: str
     as_of_month: str
     status: str
-    failure_reason: Optional[str] = None
+    failure_reason: str | None = None
     row_count: int = 0
     accepted_count: int = 0
     rejected_count: int = 0
@@ -91,10 +91,10 @@ class _Row:
     source_row_no: int
     raw_line: str
     values: dict = field(default_factory=dict)
-    reason: Optional[str] = None
+    reason: str | None = None
 
 
-def inbound_root(explicit: Union[str, Path, None] = None) -> Path:
+def inbound_root(explicit: str | Path | None = None) -> Path:
     return Path(explicit or os.environ.get(INBOUND_ROOT_ENV) or DEFAULT_INBOUND_ROOT)
 
 
@@ -125,7 +125,7 @@ def _decode(path: Path, data: bytes) -> str:
     return text
 
 
-def _parse_line(line: str) -> List[str]:
+def _parse_line(line: str) -> list[str]:
     return [value.strip() for value in next(csv.reader([line]))]
 
 
@@ -133,7 +133,7 @@ def _reject(code: str, detail: str) -> str:
     return f"{code}: {detail}"[:REASON_MAX_LEN]
 
 
-def _parse_amount(raw: str, column: str) -> Union[Decimal, str]:
+def _parse_amount(raw: str, column: str) -> Decimal | str:
     """Return the value rounded to Numeric(18,4), or an error detail string."""
     if not PLAIN_DECIMAL_RE.match(raw):
         return f"{column} {raw!r} is not numeric"
@@ -211,7 +211,7 @@ def _validate(row: _Row, fields: Sequence[str], file_month: str, seen_ids: set) 
     }
 
 
-def _previous_batch(session: Session, month: str, sha256: str) -> Optional[EsgLoadBatch]:
+def _previous_batch(session: Session, month: str, sha256: str) -> EsgLoadBatch | None:
     """The batch that makes this run a no-op, if any.
 
     The month's latest complete batch with the same bytes means staging already reflects the file.
@@ -235,7 +235,7 @@ def _previous_batch(session: Session, month: str, sha256: str) -> Optional[EsgLo
     return None
 
 
-def _upsert_staging(session: Session, rows: List[dict]) -> None:
+def _upsert_staging(session: Session, rows: list[dict]) -> None:
     dialect = session.get_bind().dialect.name
     if dialect == "sqlite":
         from sqlalchemy.dialects.sqlite import insert
@@ -254,7 +254,7 @@ def _upsert_staging(session: Session, rows: List[dict]) -> None:
     session.execute(stmt)
 
 
-def load_feed(session: Session, path: Union[str, Path], root: Union[str, Path, None] = None) -> LoadResult:
+def load_feed(session: Session, path: str | Path, root: str | Path | None = None) -> LoadResult:
     """Load one feed file. Commits on success; rolls back and re-raises on any unexpected error."""
     path = Path(path)
     root_path = inbound_root(root)
@@ -282,7 +282,7 @@ def load_feed(session: Session, path: Union[str, Path], root: Union[str, Path, N
 
     lines = text.splitlines()
     header = _parse_line(lines[0]) if lines else []
-    rows: List[_Row] = []
+    rows: list[_Row] = []
     failure_reason = None
     if header != EXPECTED_HEADER:
         failure_reason = BAD_HEADER
@@ -358,9 +358,9 @@ def load_feed(session: Session, path: Union[str, Path], root: Union[str, Path, N
     )
 
 
-def discover_feeds(root: Union[str, Path, None] = None) -> List[Path]:
+def discover_feeds(root: str | Path | None = None) -> list[Path]:
     return sorted(inbound_root(root).glob("esg/*/esg_emissions_*.csv"))
 
 
-def load_all(session: Session, root: Union[str, Path, None] = None) -> List[LoadResult]:
+def load_all(session: Session, root: str | Path | None = None) -> list[LoadResult]:
     return [load_feed(session, path, root) for path in discover_feeds(root)]

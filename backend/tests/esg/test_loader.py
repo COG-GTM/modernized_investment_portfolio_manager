@@ -17,7 +17,7 @@ SAMPLE_FEED = BACKEND / "inbound" / "esg" / "2026-10" / "esg_emissions_2026-10.c
 HEADER = "as_of_month,investment_id,scope1_tco2e,scope2_tco2e,revenue_musd"
 
 
-def write_feed(root: Path, month: str, rows, header: str = HEADER, raw: bytes = None) -> Path:
+def write_feed(root: Path, month: str, rows, header: str = HEADER, raw: bytes | None = None) -> Path:
     path = root / "esg" / month / f"esg_emissions_{month}.csv"
     path.parent.mkdir(parents=True, exist_ok=True)
     if raw is not None:
@@ -68,7 +68,7 @@ class TestSampleFile:
         assert set(rows) == {"AAPL", "MSFT", "GOOGL", "TSLA"}
         assert {r.batch_id for r in rows.values()} == {result.batch_id}
         assert (rows["AAPL"].scope1_tco2e, rows["AAPL"].scope2_tco2e, rows["AAPL"].revenue_musd) == (
-            Decimal("10"), Decimal("40"), Decimal("2.5"),
+            Decimal(10), Decimal(40), Decimal("2.5"),
         )
         assert rows["GOOGL"].revenue_musd is None, "empty revenue is staged as NULL, not 0"
         assert rows["TSLA"].source_row_no == 4
@@ -127,7 +127,7 @@ class TestRowRejects:
         ]
         rows = staged(session)
         assert set(rows) == {"OK1", "OK2"}
-        assert rows["OK1"].scope1_tco2e == Decimal("1"), "the first occurrence of a duplicate id is kept"
+        assert rows["OK1"].scope1_tco2e == Decimal(1), "the first occurrence of a duplicate id is kept"
         assert session.query(StgEsgEmission).filter_by(as_of_month="2026-09").count() == 0
 
     def test_negative_emissions_reason_names_the_problem(self, session, inbound):
@@ -150,7 +150,7 @@ class TestRowRejects:
         ]))
         assert [r.split(":")[0] for r in reasons(session)] == ["INVALID_SCOPE1", "INVALID_SCOPE1", "INVALID_REVENUE"]
         rows = staged(session)
-        assert rows["D"].scope1_tco2e == Decimal("1000") and rows["D"].revenue_musd == Decimal("0.5")
+        assert rows["D"].scope1_tco2e == Decimal(1000) and rows["D"].revenue_musd == Decimal("0.5")
         assert rows["E"].revenue_musd == Decimal("0.0001")
 
     def test_investment_id_with_whitespace_is_rejected(self, session, inbound):
@@ -183,7 +183,7 @@ class TestFileLevel:
         result = load_feed(session, write_feed(inbound, "2026-10", ["2026-10,A,-1,2,3", "2026-10,B,x,2,3"]))
         assert (result.status, result.failure_reason, result.rejected_count, result.accepted_count) == ("F", "ALL_ROWS_REJECTED", 2, 0)
         assert len(reasons(session, result.batch_id)) == 2
-        assert staged(session)["A"].scope1_tco2e == Decimal("1")
+        assert staged(session)["A"].scope1_tco2e == Decimal(1)
 
     def test_rerunning_a_failed_file_does_not_duplicate_rejects(self, session, inbound):
         path = write_feed(inbound, "2026-10", ["2026-10,A,-1,2,3"])
@@ -232,7 +232,7 @@ class TestCorrections:
         assert second.batch_id != first.batch_id and not second.skipped
         rows = staged(session)
         assert set(rows) == {"A"}, "B was dropped by the corrected file"
-        assert rows["A"].scope1_tco2e == Decimal("5") and rows["A"].batch_id == second.batch_id
+        assert rows["A"].scope1_tco2e == Decimal(5) and rows["A"].batch_id == second.batch_id
         assert session.query(EsgLoadBatch).count() == 2, "earlier batch is retained"
         assert len(reasons(session, first.batch_id)) == 1, "earlier rejects are retained"
 
@@ -244,12 +244,12 @@ class TestCorrections:
 
         assert not third.skipped and third.batch_id == 3
         assert set(staged(session)) == {"A", "B"}
-        assert staged(session)["A"].scope1_tco2e == Decimal("1")
+        assert staged(session)["A"].scope1_tco2e == Decimal(1)
 
     def test_loading_one_month_never_touches_another(self, session, inbound):
         load_feed(session, write_feed(inbound, "2026-09", ["2026-09,A,1,2,3", "2026-09,B,1,2,3"]))
         load_feed(session, write_feed(inbound, "2026-10", ["2026-10,A,5,2,3", "2026-09,B,9,9,9"]))
-        assert {k: r.scope1_tco2e for k, r in staged(session, "2026-09").items()} == {"A": Decimal("1"), "B": Decimal("1")}
+        assert {k: r.scope1_tco2e for k, r in staged(session, "2026-09").items()} == {"A": Decimal(1), "B": Decimal(1)}
         assert set(staged(session, "2026-10")) == {"A"}
 
 

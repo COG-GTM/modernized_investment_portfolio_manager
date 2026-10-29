@@ -10,9 +10,14 @@ from __future__ import annotations
 
 import argparse
 import sys
-from typing import List, Optional
 
-from esg.loader import INBOUND_ROOT_ENV, EsgFeedError, LoadResult, discover_feeds, load_feed
+from esg.loader import (
+    INBOUND_ROOT_ENV,
+    EsgFeedError,
+    LoadResult,
+    discover_feeds,
+    load_feed,
+)
 from models.database import SessionLocal
 
 
@@ -29,7 +34,7 @@ def _report(result: LoadResult) -> None:
         )
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m esg.load_esg_feed", description=__doc__.splitlines()[0])
     target = parser.add_mutually_exclusive_group(required=True)
     target.add_argument("--file", help="path to one esg/<YYYY-MM>/esg_emissions_<YYYY-MM>.csv file")
