@@ -1,8 +1,14 @@
+export const UNPRICED_LABEL = 'Unpriced';
+
 export function formatCurrency(
-  value: number,
+  value: number | null | undefined,
   currency: string = 'USD',
   options: Intl.NumberFormatOptions = {}
 ): string {
+  if (value === null || value === undefined) {
+    return UNPRICED_LABEL;
+  }
+
   const defaultOptions: Intl.NumberFormatOptions = {
     style: 'currency',
     currency,
@@ -63,13 +69,17 @@ export function getGainLossColorClass(value: number): string {
 }
 
 export function formatGainLoss(
-  value: number,
-  percentage: number,
+  value: number | null | undefined,
+  percentage: number | null | undefined,
   currency: string = 'USD'
 ): {
   formatted: string;
   colorClass: string;
 } {
+  if (value === null || value === undefined || percentage === null || percentage === undefined) {
+    return { formatted: UNPRICED_LABEL, colorClass: 'text-gray-600' };
+  }
+
   const sign = value >= 0 ? '+' : '';
   const formatted = `${sign}${formatCurrency(value, currency)} (${sign}${formatPercentage(percentage)})`;
   const colorClass = getGainLossColorClass(value);

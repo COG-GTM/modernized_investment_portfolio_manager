@@ -5,12 +5,12 @@ export interface Position {
   name: string;
   quantity: number;
   costBasis: number;
-  currentPrice: number;
-  marketValue: number;
+  currentPrice: number | null;
+  marketValue: number | null;
   currency: string;
   status: 'ACTIVE' | 'INACTIVE' | 'PENDING';
-  gainLoss: number;
-  gainLossPercent: number;
+  gainLoss: number | null;
+  gainLossPercent: number | null;
   lastUpdated: string;
 }
 

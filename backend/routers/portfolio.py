@@ -48,6 +48,7 @@ def _build_holding(position: Position) -> PortfolioHolding:
             symbol=position.investment_id,
             name=SECURITY_NAMES.get(position.investment_id, position.investment_id),
             shares=int(quantity),
+            costBasis=round(cost_basis, 2),
             currentPrice=None,
             marketValue=None,
             gainLoss=None,
@@ -63,6 +64,7 @@ def _build_holding(position: Position) -> PortfolioHolding:
         symbol=position.investment_id,
         name=SECURITY_NAMES.get(position.investment_id, position.investment_id),
         shares=int(quantity),
+        costBasis=round(cost_basis, 2),
         currentPrice=round(current_price, 2),
         marketValue=round(market_value, 2),
         gainLoss=round(gain_loss, 2),
@@ -73,8 +75,15 @@ def _build_holding(position: Position) -> PortfolioHolding:
 def build_portfolio_summary(portfolio: Portfolio, positions: List[Position]) -> PortfolioSummary:
     holdings = [_build_holding(position) for position in positions]
 
-    total_cost_basis = sum(float(position.cost_basis or 0) for position in positions)
-    total_market_value = sum(holding.marketValue for holding in holdings)
+    # Unpriced holdings (market_value NULL) are excluded from the totals so a
+    # pricing gap neither crashes the summary nor shows up as a total loss.
+    priced = [
+        (position, holding)
+        for position, holding in zip(positions, holdings)
+        if holding.marketValue is not None
+    ]
+    total_cost_basis = sum(float(position.cost_basis or 0) for position, _ in priced)
+    total_market_value = sum(holding.marketValue for _, holding in priced)
     total_gain_loss = total_market_value - total_cost_basis
     total_gain_loss_percent = (total_gain_loss / total_cost_basis * 100) if total_cost_basis else 0.0
     total_value = total_market_value + float(portfolio.cash_balance or 0)

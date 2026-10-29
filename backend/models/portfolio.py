@@ -7,6 +7,7 @@ class PortfolioHolding(BaseModel):
     symbol: str
     name: str
     shares: int
+    costBasis: float
     currentPrice: Optional[float]
     marketValue: Optional[float]
     gainLoss: Optional[float]
