@@ -63,7 +63,7 @@ def verify_database_persistence():
         else:
             print(f"❌ Missing positions: {missing_symbols}")
         
-        return len(portfolios) > 0 and len(positions) == 4 and len(transactions) >= 2
+        return len(portfolios) > 0 and len(positions) >= 4 and len(transactions) >= 2
         
     except Exception as e:
         print(f"❌ Error verifying database: {e}")

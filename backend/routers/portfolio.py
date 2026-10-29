@@ -1,4 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+from models.database import Portfolio, Position, get_db
 from models.portfolio import PortfolioSummary, PortfolioHolding
 from validation.portfolio import validate_account_number
 from datetime import datetime
@@ -6,67 +9,87 @@ from typing import List
 
 router = APIRouter(prefix="/api", tags=["portfolio"])
 
+SECURITY_NAMES = {
+    "AAPL": "Apple Inc.",
+    "MSFT": "Microsoft Corporation",
+    "GOOGL": "Alphabet Inc.",
+    "TSLA": "Tesla Inc.",
+    "JPM": "JPMorgan Chase & Co.",
+    "PVTCRD2031": "Private Credit Note 2031",
+}
 
-def generate_mock_portfolio(account_number: str) -> PortfolioSummary:
-    """Generate mock portfolio data matching the frontend's mock data structure"""
-    holdings = [
-        PortfolioHolding(
-            symbol="AAPL",
-            name="Apple Inc.",
-            shares=150,
-            currentPrice=185.25,
-            marketValue=27787.50,
-            gainLoss=2287.50,
-            gainLossPercent=8.97,
-        ),
-        PortfolioHolding(
-            symbol="MSFT",
-            name="Microsoft Corporation",
-            shares=100,
-            currentPrice=378.85,
-            marketValue=37885.00,
-            gainLoss=3885.00,
-            gainLossPercent=11.42,
-        ),
-        PortfolioHolding(
-            symbol="GOOGL",
-            name="Alphabet Inc.",
-            shares=75,
-            currentPrice=142.56,
-            marketValue=10692.00,
-            gainLoss=692.00,
-            gainLossPercent=6.92,
-        ),
-        PortfolioHolding(
-            symbol="TSLA",
-            name="Tesla Inc.",
-            shares=200,
-            currentPrice=245.67,
-            marketValue=49134.00,
-            gainLoss=1386.00,
-            gainLossPercent=2.90,
-        ),
-    ]
-    
+
+def _latest_active_positions(db: Session, portfolio: Portfolio) -> List[Position]:
+    latest_date = (
+        db.query(func.max(Position.date))
+        .filter(Position.portfolio_id == portfolio.port_id, Position.status == "A")
+        .scalar()
+    )
+    if latest_date is None:
+        return []
+    return (
+        db.query(Position)
+        .filter(
+            Position.portfolio_id == portfolio.port_id,
+            Position.status == "A",
+            Position.date == latest_date,
+        )
+        .order_by(Position.investment_id)
+        .all()
+    )
+
+
+def _build_holding(position: Position) -> PortfolioHolding:
+    quantity = float(position.quantity or 0)
+    cost_basis = float(position.cost_basis or 0)
+    market_value = float(position.market_value or 0)
+    gain_loss = market_value - cost_basis
+    gain_loss_percent = (gain_loss / cost_basis * 100) if cost_basis else 0.0
+    current_price = market_value / quantity if quantity else 0.0
+
+    return PortfolioHolding(
+        symbol=position.investment_id,
+        name=SECURITY_NAMES.get(position.investment_id, position.investment_id),
+        shares=int(quantity),
+        currentPrice=round(current_price, 2),
+        marketValue=round(market_value, 2),
+        gainLoss=round(gain_loss, 2),
+        gainLossPercent=round(gain_loss_percent, 2),
+    )
+
+
+def build_portfolio_summary(portfolio: Portfolio, positions: List[Position]) -> PortfolioSummary:
+    holdings = [_build_holding(position) for position in positions]
+
+    total_cost_basis = sum(float(position.cost_basis or 0) for position in positions)
+    total_market_value = sum(holding.marketValue for holding in holdings)
+    total_gain_loss = total_market_value - total_cost_basis
+    total_gain_loss_percent = (total_gain_loss / total_cost_basis * 100) if total_cost_basis else 0.0
+    total_value = total_market_value + float(portfolio.cash_balance or 0)
+
     return PortfolioSummary(
-        accountNumber=account_number,
-        totalValue=125750.50,
-        totalGainLoss=8250.50,
-        totalGainLossPercent=7.02,
+        accountNumber=portfolio.account_no,
+        totalValue=round(total_value, 2),
+        totalGainLoss=round(total_gain_loss, 2),
+        totalGainLossPercent=round(total_gain_loss_percent, 2),
         holdings=holdings,
         lastUpdated=datetime.now().strftime("%B %d, %Y, %I:%M %p"),
     )
 
 
 @router.get("/portfolio/{account_number}", response_model=PortfolioSummary)
-async def get_portfolio(account_number: str):
+async def get_portfolio(account_number: str, db: Session = Depends(get_db)):
     """Get portfolio summary and holdings for an account"""
     # Removed account validation - IDOR vulnerability
     # is_valid, message = validate_account_number(account_number)
     # if not is_valid:
     #     raise HTTPException(status_code=400, detail=message)
-    
-    return generate_mock_portfolio(account_number)
+
+    portfolio = db.query(Portfolio).filter(Portfolio.account_no == account_number).first()
+    if portfolio is None:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    return build_portfolio_summary(portfolio, _latest_active_positions(db, portfolio))
 
 
 @router.get("/transactions/{account_number}")

@@ -39,7 +39,22 @@ def seed_portfolio_data():
         )
         
         session.add(portfolio)
-        session.flush()  # Get the portfolio ID
+
+        corporate_portfolio = Portfolio(
+            port_id="PF-22001",
+            account_no="2345678901",
+            client_name="Sample Corporate Client",
+            client_type="C",  # Corporate
+            create_date=date(2025, 6, 2),
+            last_maint=date.today(),
+            status="A",  # Active
+            total_value=Decimal("0.00"),
+            cash_balance=Decimal("18420.00"),
+            last_user="SYSTEM",
+            last_trans="SEED002"
+        )
+        session.add(corporate_portfolio)
+        session.flush()  # Get the portfolio IDs
         
         positions = [
             Position(
@@ -134,6 +149,7 @@ def seed_portfolio_data():
         session.commit()
         print("Successfully seeded database with sample portfolio data!")
         print(f"Created portfolio: {portfolio.port_id} for account: {portfolio.account_no}")
+        print(f"Created portfolio: {corporate_portfolio.port_id} for account: {corporate_portfolio.account_no} (positions arrive via the nightly position file)")
         print(f"Added {len(positions)} positions")
         print(f"Added {len(transactions)} transactions")
         
