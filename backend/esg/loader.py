@@ -289,7 +289,12 @@ def _upsert_staging(session: Session, rows: list[dict]) -> None:
 
 
 def load_feed(session: Session, path: str | Path, root: str | Path | None = None) -> LoadResult:
-    """Load one feed file. Commits on success; rolls back and re-raises on any unexpected error."""
+    """Load one feed file. Commits on success; rolls back and re-raises on any unexpected error.
+
+    The loader owns the session's transaction, so the session must have no pending changes.
+    """
+    if session.new or session.dirty or session.deleted:
+        raise ValueError("load_feed needs a session with no pending changes; commit or roll back first")
     path = Path(path)
     root_path = inbound_root(root)
     if not path.is_file():
@@ -309,7 +314,7 @@ def load_feed(session: Session, path: str | Path, root: str | Path | None = None
     else:
         seen_ids: set = set()
         for line_no, raw, fields in records[1:]:
-            if fields in ([], [""]):
+            if not raw.strip():
                 continue
             row = _Row(source_row_no=line_no - 1, raw_line=raw)
             _validate(row, fields, file_month, seen_ids)
@@ -339,7 +344,7 @@ def load_feed(session: Session, path: str | Path, root: str | Path | None = None
                 rejected_count=previous.rejected_count,
                 skipped=True,
             )
-            session.commit()
+            session.rollback()
             return skipped
 
         batch = EsgLoadBatch(

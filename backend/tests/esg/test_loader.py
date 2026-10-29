@@ -402,11 +402,18 @@ class TestReviewFollowUps:
         assert counts(session) == (1, 1, 1)
         session.close()
 
-    def test_skipped_rerun_keeps_the_callers_pending_changes(self, session, inbound):
+    def test_refuses_a_session_with_pending_changes(self, session, inbound):
         path = write_feed(inbound, "2026-10", ["2026-10,A,1,2,3"])
         load_feed(session, path)
         session.add(EsgLoadBatch(file_path="x", file_sha256="0" * 64, as_of_month="2026-09", loaded_at=datetime.now(),
                                  row_count=0, accepted_count=0, rejected_count=0, status="F", failure_reason="EMPTY_FILE"))
-        assert load_feed(session, path).skipped
+        with pytest.raises(ValueError, match="pending changes"):
+            load_feed(session, path)
+        assert len(session.new) == 1, "the caller's pending change is left alone"
         session.rollback()
-        assert session.query(EsgLoadBatch).filter_by(as_of_month="2026-09").count() == 1
+        assert counts(session) == (1, 1, 0)
+
+    def test_quoted_empty_record_is_rejected_not_skipped(self, session, inbound):
+        result = load_feed(session, write_feed(inbound, "2026-10", ["2026-10,A,1,2,3", '""']))
+        assert (result.row_count, result.rejected_count) == (2, 1)
+        assert reasons(session)[0].startswith("WRONG_COLUMN_COUNT:")
