@@ -34,7 +34,7 @@ export default function EsgAuditHistory({ isOpen, entries, loading = false, erro
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog" aria-modal="true" aria-labelledby="esg-history-title">
-      <div ref={dialogRef} className="w-full max-w-2xl mx-4 rounded-xl border bg-card p-6 shadow-lg">
+      <div ref={dialogRef} className="w-full max-w-[42rem] mx-4 rounded-xl border bg-card p-6 shadow-lg">
         <div className="flex items-start justify-between">
           <div>
             <h2 id="esg-history-title" className="text-lg font-semibold">Carbon intensity override history</h2>
