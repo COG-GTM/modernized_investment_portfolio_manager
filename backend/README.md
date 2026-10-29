@@ -41,6 +41,20 @@ backend/
 └── README.md               # This file
 ```
 
+## ESG emissions feed loader
+
+The monthly ESG emissions file lands in the inbound bucket (locally `backend/inbound/`, override with `ESG_INBOUND_DIR`) as `esg/<YYYY-MM>/esg_emissions_<YYYY-MM>.csv` with the header `as_of_month,investment_id,scope1_tco2e,scope2_tco2e,revenue_musd`. Run from `backend/`:
+
+```bash
+python -m esg.load_esg_feed --file inbound/esg/2026-10/esg_emissions_2026-10.csv
+python -m esg.load_esg_feed --all   # every file not yet loaded
+```
+
+- Each file gets an `esg_load_batches` row (status `C` complete or `F` failed, with `BAD_HEADER`, `EMPTY_FILE` or `ALL_ROWS_REJECTED`).
+- Accepted rows replace the month's snapshot in `stg_esg_emissions` (keyed by month and investment, tagged with the batch id).
+- Malformed rows go to `esg_load_rejects` with a reason code (`INVALID_AS_OF_MONTH`, `MISSING_INVESTMENT_ID`, `INVALID_SCOPE1`, `INVALID_SCOPE2`, `INVALID_REVENUE`, `DUPLICATE_INVESTMENT_ID`, `WRONG_COLUMN_COUNT`).
+- Re-running a file that is already loaded writes nothing. Exit code is 0 on success and 1 when a file fails.
+
 ## Data Models
 
 ### PortfolioSummary
