@@ -159,7 +159,7 @@ class TestRowRejects:
         assert [r.split(":")[0] for r in reasons(session)] == ["MISSING_INVESTMENT_ID"] * 2
 
     def test_bom_crlf_and_blank_lines(self, session, inbound):
-        raw = b"\xef\xbb\xbf" + f"{HEADER}\r\n2026-10,A,1,2,3\r\n\r\n2026-10,B,-1,2,3\r\n".encode()
+        raw = b"\xef\xbb\xbf" + f"{HEADER}\r\n2026-10,A,1,2,3\r\n  \r\n2026-10,B,-1,2,3\r\n".encode()
         result = load_feed(session, write_feed(inbound, "2026-10", [], raw=raw))
         assert (result.row_count, result.accepted_count, result.rejected_count) == (2, 1, 1)
         assert session.query(EsgLoadReject).one().source_row_no == 3, "row numbers follow the file's physical lines"

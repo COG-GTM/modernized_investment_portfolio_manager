@@ -308,7 +308,7 @@ def load_feed(session: Session, path: str | Path, root: str | Path | None = None
     else:
         seen_ids: set = set()
         for line_no, raw, fields in records[1:]:
-            if not fields:
+            if fields in ([], [""]):
                 continue
             row = _Row(source_row_no=line_no - 1, raw_line=raw)
             _validate(row, fields, file_month, seen_ids)
