@@ -56,32 +56,32 @@ export default function EsgAuditHistory({ isOpen, entries, loading = false, erro
             <p className="text-sm text-muted-foreground" data-testid="esg-history-empty">No overrides have been recorded for this portfolio.</p>
           )}
           {!loading && !error && entries.length > 0 && (
-            <table className="w-full text-sm" data-testid="esg-history-table">
+            <table className="w-full table-fixed text-sm" data-testid="esg-history-table">
               <thead>
                 <tr className="text-left text-muted-foreground border-b">
-                  <th className="py-2 pr-3 font-medium">When</th>
-                  <th className="py-2 pr-3 font-medium">Action</th>
-                  <th className="py-2 pr-3 font-medium">Month</th>
-                  <th className="py-2 pr-3 font-medium">Old</th>
-                  <th className="py-2 pr-3 font-medium">New</th>
-                  <th className="py-2 pr-3 font-medium">Who</th>
+                  <th className="w-[7.5rem] py-2 pr-3 font-medium">When</th>
+                  <th className="w-[5.5rem] py-2 pr-3 font-medium">Action</th>
+                  <th className="w-[6rem] py-2 pr-3 font-medium">Month</th>
+                  <th className="w-[3.5rem] py-2 pr-3 font-medium">Old</th>
+                  <th className="w-[3.5rem] py-2 pr-3 font-medium">New</th>
+                  <th className="w-[7rem] py-2 pr-3 font-medium">Who</th>
                   <th className="py-2 font-medium">Reason</th>
                 </tr>
               </thead>
               <tbody>
                 {entries.map((entry) => (
                   <tr key={entry.id} className="border-b last:border-0 align-top">
-                    <td className="py-2 pr-3 whitespace-nowrap">{formatTimestamp(entry.changed_at)}</td>
+                    <td className="py-2 pr-3">{formatTimestamp(entry.changed_at)}</td>
                     <td className="py-2 pr-3">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${entry.action === 'OVERRIDE' ? 'bg-amber-200 text-amber-900' : 'bg-emerald-200 text-emerald-900'}`}>
                         {entry.action === 'OVERRIDE' ? 'Override' : 'Clear'}
                       </span>
                     </td>
-                    <td className="py-2 pr-3 whitespace-nowrap">{formatAsOfMonth(entry.as_of_month)}</td>
+                    <td className="py-2 pr-3">{formatAsOfMonth(entry.as_of_month)}</td>
                     <td className="py-2 pr-3">{formatIntensity(entry.old_value)}</td>
                     <td className="py-2 pr-3">{formatIntensity(entry.new_value)}</td>
-                    <td className="py-2 pr-3">{entry.changed_by}</td>
-                    <td className="py-2">{entry.reason}</td>
+                    <td className="py-2 pr-3 break-words">{entry.changed_by}</td>
+                    <td className="py-2 break-words">{entry.reason}</td>
                   </tr>
                 ))}
               </tbody>
