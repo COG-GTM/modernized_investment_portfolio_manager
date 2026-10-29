@@ -88,7 +88,7 @@ export default function EsgOverrideModal({ isOpen, mode, metric, onSubmit, onCan
       aria-modal="true"
       aria-labelledby="esg-override-title"
     >
-      <div ref={dialogRef} className="w-full max-w-md mx-4 rounded-xl border bg-card p-6 shadow-lg">
+      <div ref={dialogRef} className="w-full max-w-[28rem] mx-4 rounded-xl border bg-card p-6 shadow-lg">
         <h2 id="esg-override-title" className="text-lg font-semibold">{title}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Applies to the current as-of month ({asOf}). Computed value: {formatIntensity(metric?.computed_value)} {metric?.unit}.

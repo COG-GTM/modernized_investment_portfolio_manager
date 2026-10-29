@@ -98,3 +98,24 @@ def test_missing_header_column_fails_whole_file(db, tmp_path):
 def test_missing_file_raises(db, tmp_path):
     with pytest.raises(EsgFeedError, match="not found"):
         load_esg_feed(db, tmp_path / "nope.csv")
+
+
+def test_corrected_resend_removes_investments_no_longer_in_file(db, tmp_path):
+    load_esg_feed(db, write_feed(tmp_path, ["2026-10,AAPL,10,10,5", "2026-10,MSFT,10,10,5"], name="v1.csv"))
+    assert {r.investment_id for r in db.query(StgEsgEmissions)} == {"AAPL", "MSFT"}
+
+    result = load_esg_feed(db, write_feed(tmp_path, ["2026-10,AAPL,12,10,5", "2026-10,MSFT,10,10,"], name="v2.csv"))
+
+    assert result.loaded_rows == 1 and result.rejected_rows == 1
+    assert {r.investment_id for r in db.query(StgEsgEmissions)} == {"AAPL"}
+    assert db.query(EsgLoadBatch).count() == 2
+    assert db.query(EsgLoadReject).count() == 1
+
+
+def test_rerun_of_mixed_month_file_reports_every_staged_month(db, tmp_path):
+    feed = write_feed(tmp_path, ["2026-09,AAPL,10,10,5", "2026-10,AAPL,10,10,5"])
+    first = load_esg_feed(db, feed)
+    assert first.as_of_months == ["2026-09", "2026-10"]
+
+    rerun = load_esg_feed(db, feed)
+    assert rerun.skipped and rerun.as_of_months == ["2026-09", "2026-10"]
