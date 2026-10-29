@@ -324,6 +324,14 @@ class TestReviewFollowUps:
         assert reject.raw_line == '2026-10,"BAD\n2026-10,FAKE,1,2,3",1,2,3'
         assert staged(session)["B"].source_row_no == 4, "row numbers still follow physical lines"
 
+    def test_rejected_multiline_record_keeps_its_line_endings(self, session, inbound):
+        raw = f'{HEADER}\r\n2026-10,A,1,2,3\r\n2026-10,"B\r\nC",1,2,3\r\n2026-10,D,-1,2,3\r\n'.encode()
+        load_feed(session, write_feed(inbound, "2026-10", [], raw=raw))
+        assert [r.raw_line for r in session.query(EsgLoadReject).order_by(EsgLoadReject.reject_id)] == [
+            '2026-10,"B\r\nC",1,2,3',
+            "2026-10,D,-1,2,3",
+        ]
+
     def test_feed_larger_than_sqlite_bind_limit_loads(self, session, inbound):
         rows = [f"2026-10,ID{i:05d},1.5,2.5,3.5" for i in range(6000)]
         result = load_feed(session, write_feed(inbound, "2026-10", rows))

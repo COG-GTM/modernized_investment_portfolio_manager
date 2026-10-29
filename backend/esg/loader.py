@@ -127,7 +127,8 @@ def _decode(path: Path, data: bytes) -> str:
     return text
 
 
-PHYSICAL_LINE_RE = re.compile(r"\r\n|\r|\n")
+PHYSICAL_LINE_RE = re.compile(r"(?<=\r\n)|(?<=\n)|(?<=\r)(?!\n)")
+TRAILING_TERMINATOR_RE = re.compile(r"(\r\n|\r|\n)\Z")
 UPSERT_CHUNK_ROWS = 500
 MONTH_LOCK_NAMESPACE = 0x45534700_000000
 
@@ -146,7 +147,7 @@ def _records(content: str) -> list[tuple[int, str, list[str]]]:
             fields = next(reader)
         except StopIteration:
             return records
-        raw = "\n".join(physical[start - 1 : reader.line_num])
+        raw = TRAILING_TERMINATOR_RE.sub("", "".join(physical[start - 1 : reader.line_num]))
         records.append((start, raw, [value.strip() for value in fields]))
 
 
