@@ -118,7 +118,7 @@ def test_rerun_is_idempotent_and_preserves_override(seeded_db):
 
 def test_only_matching_month_is_used(db, tmp_path):
     add_portfolio(db)
-    add_position(db, "AAA", "100")
+    add_position(db, "AAA", "100", on=date(2026, 9, 30))
     load_esg_feed(db, write_feed(tmp_path, ["2026-09,AAA,100,0,10"], name="sep.csv"))
     load_esg_feed(db, write_feed(tmp_path, ["2026-10,AAA,200,0,10"], name="oct.csv"))
 
@@ -148,3 +148,48 @@ def test_alembic_migration_creates_esg_tables(tmp_path):
 
     tables = set(inspect(create_engine(url)).get_table_names())
     assert {"esg_load_batches", "stg_esg_emissions", "esg_load_rejects", "portfolio_esg_metrics", "esg_override_audit"} <= tables
+
+
+def test_latest_snapshot_at_month_end_is_used_and_later_snapshots_ignored(db, tmp_path):
+    add_portfolio(db)
+    add_position(db, "AAA", "100", on=date(2026, 9, 30))
+    add_position(db, "AAA", "150", on=date(2026, 10, 31))
+    add_position(db, "AAA", "999", on=date(2026, 11, 30))
+    load_esg_feed(db, write_feed(tmp_path, ["2026-10,AAA,20,0,10"]))
+
+    compute_waci(db, AS_OF)
+
+    metric = _metric(db)
+    assert float(metric.total_market_value) == pytest.approx(150)
+    assert float(metric.waci_computed) == pytest.approx(2.0)
+    assert float(metric.coverage_pct) == pytest.approx(100.0)
+
+
+def test_closing_snapshot_supersedes_earlier_active_snapshot(db, tmp_path):
+    add_portfolio(db)
+    add_position(db, "AAA", "500")
+    add_position(db, "SOLD", "500", on=date(2026, 10, 10))
+    add_position(db, "SOLD", "500", status="C", on=date(2026, 10, 20))
+    load_esg_feed(db, write_feed(tmp_path, ["2026-10,AAA,100,0,10", "2026-10,SOLD,9000,0,10"]))
+
+    compute_waci(db, AS_OF)
+
+    metric = _metric(db)
+    assert float(metric.total_market_value) == pytest.approx(500)
+    assert float(metric.waci_computed) == pytest.approx(10.0)
+
+
+def test_zero_quantity_position_is_excluded(db, tmp_path):
+    from decimal import Decimal
+    add_portfolio(db)
+    add_position(db, "AAA", "500")
+    empty = add_position(db, "GONE", "500")
+    empty.quantity = Decimal("0")
+    db.flush()
+    load_esg_feed(db, write_feed(tmp_path, ["2026-10,AAA,100,0,10", "2026-10,GONE,9000,0,10"]))
+
+    compute_waci(db, AS_OF)
+
+    metric = _metric(db)
+    assert float(metric.total_market_value) == pytest.approx(500)
+    assert float(metric.waci_computed) == pytest.approx(10.0)

@@ -26,7 +26,7 @@ class EsgMetricResponse(BaseModel):
 
 
 class EsgOverrideRequest(BaseModel):
-    value: float = Field(..., ge=0, description="Override WACI in tCO2e per $M revenue")
+    value: float = Field(..., ge=0, allow_inf_nan=False, description="Override WACI in tCO2e per $M revenue")
     reason: str = Field(..., min_length=10, description="Why the computed value is being overridden")
 
 

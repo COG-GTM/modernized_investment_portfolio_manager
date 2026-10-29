@@ -210,22 +210,30 @@ def test_gap15_cli_warns_on_stderr_when_rows_are_rejected_or_nothing_staged(engi
 # --------------------------------------------------------------------------- open findings (xfail, strict)
 
 
-@pytest.mark.xfail(strict=True, reason="OPEN RP-46: corrected re-send does not retire rows the new file no longer contains")
-def test_gap16_open_corrected_resend_leaves_stale_rows_from_previous_batch(db, tmp_path):
-    """RP-46: after a corrected file for the same month drops MSFT, the MSFT row from batch 1 still feeds WACI."""
+def test_gap16_corrected_resend_retires_rows_the_new_file_no_longer_contains(db, tmp_path):
+    """RP-46: a corrected file for the same month is the complete feed; MSFT from batch 1 must drop out of staging."""
     load_esg_feed(db, write_esg_rows(tmp_path, ["2026-10,AAPL,1,2,3", "2026-10,MSFT,1,2,3"]))
     load_esg_feed(db, write_esg_rows(tmp_path, ["2026-10,AAPL,5,2,3"]))
     assert {r.investment_id for r in db.query(StgEsgEmissions).filter_by(as_of_month=AS_OF)} == {"AAPL"}
+    assert db.query(EsgLoadBatch).count() == 2, "load history is retained"
 
 
-@pytest.mark.xfail(strict=True, reason="OPEN RP-46: a rejected correction silently keeps the superseded value in staging")
-def test_gap17_open_rejected_correction_keeps_previous_value_without_warning(db, tmp_path):
-    """RP-46: provider re-sends AAPL with a malformed value; the old AAPL row stays staged and nothing flags it."""
+def test_gap17_rejected_correction_does_not_keep_the_superseded_value(db, tmp_path):
+    """RP-46: provider re-sends AAPL with a malformed value; the old AAPL row must not keep feeding WACI."""
     load_esg_feed(db, write_esg_rows(tmp_path, ["2026-10,AAPL,1,2,3"]))
     result = load_esg_feed(db, write_esg_rows(tmp_path, ["2026-10,AAPL,-1,2,3"]))
     assert result.rejected_rows == 1
-    staged = db.query(StgEsgEmissions).filter_by(as_of_month=AS_OF, investment_id="AAPL").first()
-    assert staged is None or "superseded" in " ".join(result.rejects[0]["reason"].split()).lower()
+    assert db.query(StgEsgEmissions).filter_by(as_of_month=AS_OF, investment_id="AAPL").first() is None
+
+
+def test_gap20_mis_dated_row_does_not_wipe_the_other_months_staging(db, tmp_path):
+    """RP-46: month replacement is scoped to the file's month; a stray 2026-09 row in the October file must not
+    delete September's staging rows (it is rejected by the file-month cross-check instead)."""
+    load_esg_feed(db, write_feed(tmp_path, ["2026-09,AAPL,1,2,3", "2026-09,MSFT,1,2,3"], name="esg_emissions_2026-09.csv"))
+    result = load_esg_feed(db, write_feed(tmp_path, ["2026-10,AAPL,5,2,3", "2026-09,MSFT,9,9,9"], name="esg_emissions_2026-10.csv"))
+    assert (result.loaded_rows, result.rejected_rows) == (1, 1)
+    september = {r.investment_id: float(r.scope1_tco2e) for r in db.query(StgEsgEmissions).filter_by(as_of_month="2026-09")}
+    assert september == {"AAPL": 1.0, "MSFT": 1.0}
 
 
 @pytest.mark.xfail(strict=True, reason="OPEN RP-46/RP-48: rejected rows reduce coverage with no warning in the API payload")
