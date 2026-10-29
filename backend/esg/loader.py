@@ -291,10 +291,10 @@ def _upsert_staging(session: Session, rows: list[dict]) -> None:
 def load_feed(session: Session, path: str | Path, root: str | Path | None = None) -> LoadResult:
     """Load one feed file. Commits on success; rolls back and re-raises on any unexpected error.
 
-    The loader owns the session's transaction, so the session must have no pending changes.
+    The loader owns the session's transaction, so the session must not already be in one.
     """
-    if session.new or session.dirty or session.deleted:
-        raise ValueError("load_feed needs a session with no pending changes; commit or roll back first")
+    if session.in_transaction() or session.new or session.dirty or session.deleted:
+        raise ValueError("load_feed needs a session with no open transaction; commit or roll back first")
     path = Path(path)
     root_path = inbound_root(root)
     if not path.is_file():
@@ -383,21 +383,22 @@ def load_feed(session: Session, path: str | Path, root: str | Path | None = None
                     StgEsgEmission.batch_id != batch.batch_id,
                 )
             )
+        result = LoadResult(
+            batch_id=batch.batch_id,
+            file_path=rel_path,
+            as_of_month=file_month,
+            status=status,
+            failure_reason=failure_reason,
+            row_count=batch.row_count,
+            accepted_count=batch.accepted_count,
+            rejected_count=batch.rejected_count,
+        )
         session.commit()
     except Exception:
         session.rollback()
         raise
 
-    return LoadResult(
-        batch_id=batch.batch_id,
-        file_path=rel_path,
-        as_of_month=file_month,
-        status=status,
-        failure_reason=failure_reason,
-        row_count=batch.row_count,
-        accepted_count=batch.accepted_count,
-        rejected_count=batch.rejected_count,
-    )
+    return result
 
 
 def discover_feeds(root: str | Path | None = None) -> list[Path]:

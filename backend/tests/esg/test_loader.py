@@ -10,7 +10,17 @@ from sqlalchemy import create_engine, inspect
 
 from esg import load_esg_feed as cli
 from esg import loader
-from esg.loader import EsgFeedError, load_all, load_feed
+from esg.loader import EsgFeedError
+
+
+def load_feed(session, *args, **kwargs):
+    session.rollback()  # end the read transaction the assertions opened; the loader owns its own
+    return loader.load_feed(session, *args, **kwargs)
+
+
+def load_all(session, *args, **kwargs):
+    session.rollback()
+    return loader.load_all(session, *args, **kwargs)
 from models.esg import EsgLoadBatch, EsgLoadReject, StgEsgEmission
 
 BACKEND = Path(__file__).resolve().parents[2]
@@ -402,14 +412,19 @@ class TestReviewFollowUps:
         assert counts(session) == (1, 1, 1)
         session.close()
 
-    def test_refuses_a_session_with_pending_changes(self, session, inbound):
+    @pytest.mark.parametrize("flush", [False, True])
+    def test_refuses_a_session_with_an_open_transaction(self, session, inbound, flush):
         path = write_feed(inbound, "2026-10", ["2026-10,A,1,2,3"])
         load_feed(session, path)
+        session.rollback()
         session.add(EsgLoadBatch(file_path="x", file_sha256="0" * 64, as_of_month="2026-09", loaded_at=datetime.now(),
                                  row_count=0, accepted_count=0, rejected_count=0, status="F", failure_reason="EMPTY_FILE"))
-        with pytest.raises(ValueError, match="pending changes"):
-            load_feed(session, path)
-        assert len(session.new) == 1, "the caller's pending change is left alone"
+        if flush:
+            session.flush()
+        with pytest.raises(ValueError, match="open transaction"):
+            loader.load_feed(session, path)
+        session.flush()
+        assert session.query(EsgLoadBatch).filter_by(as_of_month="2026-09").count() == 1, "caller's write is untouched"
         session.rollback()
         assert counts(session) == (1, 1, 0)
 
