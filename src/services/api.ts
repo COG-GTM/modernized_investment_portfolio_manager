@@ -126,6 +126,13 @@ export async function deleteEsgOverride(accountNumber: string, reason: string): 
   });
 }
 
-export async function fetchEsgAudit(accountNumber: string): Promise<EsgAuditResponse> {
-  return esgRequest<EsgAuditResponse>(`/portfolio/${accountNumber}/esg/audit`);
+/** The server caps a page at 500 rows; the history panel asks for the largest page so it keeps showing the full trail. */
+export const ESG_AUDIT_PAGE_SIZE = 500;
+
+export async function fetchEsgAudit(
+  accountNumber: string,
+  limit: number = ESG_AUDIT_PAGE_SIZE,
+  offset = 0,
+): Promise<EsgAuditResponse> {
+  return esgRequest<EsgAuditResponse>(`/portfolio/${accountNumber}/esg/audit?limit=${limit}&offset=${offset}`);
 }
