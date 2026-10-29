@@ -1,4 +1,5 @@
 """SSTCNTRL-2: ingest the monthly ESG feed from the inbound bucket into staging."""
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -392,3 +393,12 @@ class TestReviewFollowUps:
         assert sorted(r.skipped for r in results) == [False, True]
         assert counts(session) == (1, 1, 1)
         session.close()
+
+    def test_skipped_rerun_keeps_the_callers_pending_changes(self, session, inbound):
+        path = write_feed(inbound, "2026-10", ["2026-10,A,1,2,3"])
+        load_feed(session, path)
+        session.add(EsgLoadBatch(file_path="x", file_sha256="0" * 64, as_of_month="2026-09", loaded_at=datetime.now(),
+                                 row_count=0, accepted_count=0, rejected_count=0, status="F", failure_reason="EMPTY_FILE"))
+        assert load_feed(session, path).skipped
+        session.rollback()
+        assert session.query(EsgLoadBatch).filter_by(as_of_month="2026-09").count() == 1

@@ -338,7 +338,7 @@ def load_feed(session: Session, path: str | Path, root: str | Path | None = None
                 rejected_count=previous.rejected_count,
                 skipped=True,
             )
-            session.rollback()
+            session.commit()
             return skipped
 
         batch = EsgLoadBatch(
