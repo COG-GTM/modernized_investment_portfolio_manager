@@ -1,6 +1,6 @@
 # ESG carbon intensity feed for the portfolio dashboard
 
-Jira epic: RP-45 (stories RP-46 to RP-52). Status: specification, no code written yet.
+Jira epic: [SSTCNTRL-1](https://cog-gtm.atlassian.net/browse/SSTCNTRL-1) (stories [SSTCNTRL-2](https://cog-gtm.atlassian.net/browse/SSTCNTRL-2) to [SSTCNTRL-8](https://cog-gtm.atlassian.net/browse/SSTCNTRL-8)). Status: specification, no code written yet.
 
 ## 1. Context
 
@@ -265,7 +265,7 @@ Ordered by `changed_at DESC, audit_id DESC`. `limit` is optional, default 50, ma
 
 ## 5. Calculation definition
 
-### 5.1 Loader rules (RP-46)
+### 5.1 Loader rules ([SSTCNTRL-2](https://cog-gtm.atlassian.net/browse/SSTCNTRL-2))
 
 File contract: UTF-8 CSV with header exactly `as_of_month,investment_id,scope1_tco2e,scope2_tco2e,revenue_musd`, located at `esg/<YYYY-MM>/esg_emissions_<YYYY-MM>.csv`. The loader:
 
@@ -276,7 +276,7 @@ File contract: UTF-8 CSV with header exactly `as_of_month,investment_id,scope1_t
 4. Upserts accepted rows into `stg_esg_emissions` keyed by `(as_of_month, investment_id)`, deletes staging rows for the same month whose `investment_id` is not among the accepted rows (the file replaces the month's snapshot), and inserts rejects into `esg_load_rejects`, all in one transaction with the batch row. A batch with status `F` never changes staging.
 5. Unknown `investment_id`s (no matching position) are accepted; the provider's universe is wider than our holdings.
 
-### 5.2 WACI procedure (RP-47)
+### 5.2 WACI procedure ([SSTCNTRL-3](https://cog-gtm.atlassian.net/browse/SSTCNTRL-3))
 
 `backend/sql/esg/V001__compute_portfolio_waci.sql` is a parameterised script (`:as_of_month`, `:computed_at`, `:procedure_version`) executed by `backend/esg/waci.py::compute_waci(session, as_of_month)`. It is a single statement driven from `portfolios`, so every portfolio receives a row for the month, including those with no active position (otherwise a portfolio whose last holding was closed would keep serving a stale value, and deleting its row would let an older month resurface as current). Logic, all in SQL:
 
@@ -380,19 +380,19 @@ API: `computedValue 64.137484`, `coveragePct 91.48`, `source "computed"`. After 
 
 | Jira key | Story | Files that change | Tests that prove it |
 | --- | --- | --- | --- |
-| RP-46 | Ingest monthly ESG feed into staging | `backend/esg/__init__.py`, `backend/esg/loader.py`, `backend/esg/load_esg_feed.py`, `backend/models/esg.py` (`EsgLoadBatch`, `StgEsgEmission`, `EsgLoadReject`), `backend/models/__init__.py`, `backend/migrations/versions/<rev>_add_esg_tables.py`, `backend/inbound/esg/.gitkeep`, `backend/inbound/esg/2026-10/esg_emissions_2026-10.csv`, `backend/setup_database.sh` | `backend/tests/esg/test_loader.py`: happy path counts, duplicate file is a no-op, negative emissions rejected with reason, empty revenue loads as NULL, zero/negative revenue rejected, bad header fails the batch, duplicate `investment_id` in file rejected, corrected file that drops a previously accepted holding removes its staging row, replaying the original file after a correction restores it as a new batch, all-rows-rejected and header-only files get status `F` and leave staging untouched |
-| RP-47 | Compute WACI per portfolio in a database procedure | `backend/sql/esg/V001__compute_portfolio_waci.sql`, `backend/esg/waci.py`, `backend/models/esg.py` (`PortfolioEsgMetric`), migration | `backend/tests/esg/test_waci_procedure.py`: worked example equals 64.137484 / 91.48, missing revenue excluded and lowers coverage, zero total market value gives NULL value and 0 coverage without error, position sold mid-month (latest snapshot `status 'C'`) excluded, rerun leaves exactly one row with same values, portfolio with no emissions coverage gives NULL value, whole-number inputs (mv 100, emissions 1, revenue 2) give 0.5 not 0, rerun after the last holding closes rewrites the row as the no-position state (`positions_total 0`, NULL value) |
-| RP-48 | Expose carbon intensity through the portfolio API | `backend/routers/esg.py`, `backend/schemas/esg.py`, `backend/services/esg_service.py`, `backend/models/database.py` (`get_db`), `backend/app/main.py` | `backend/tests/esg/test_esg_api.py::TestGetEsg`: computed payload, override payload, `hasMetric false` payload (never computed), `hasMetric false` when the latest month is a no-position row even though an older month has a value, 404 unknown account |
-| RP-49 | Show carbon intensity on the portfolio dashboard | `src/types/esg.ts`, `src/services/api.ts` (`fetchEsgMetric`), `src/components/EsgCarbonIntensity.tsx`, `src/components/PortfolioSummary.tsx`, `src/pages/PortfolioInquiry.tsx`, `src/components/index.ts` | `src/components/__tests__/PortfolioSummary.esg.test.tsx`: computed state shows value + unit + as-of month + coverage, override state shows indicator, empty state text, loading and error states |
-| RP-50 | Override with a reason | `backend/schemas/esg.py` (`EsgOverrideRequest`), `backend/routers/esg.py` (PUT/DELETE), `backend/services/esg_service.py`, `backend/models/esg.py` (`PortfolioEsgOverride`), `src/components/dialogs/EsgOverrideDialog.tsx`, `src/services/api.ts` (`putEsgOverride`, `clearEsgOverride`) | `backend/tests/esg/test_esg_api.py::TestOverride`: set, replace, clear, clear on a no-position month returns `source "none"` and `hasMetric false`, reason < 10 chars 422, negative value 422, 409 with no metric, 404 unknown account, applies only to current month; `src/components/__tests__/EsgOverrideDialog.test.tsx`: client-side validation messages, server 422 shown, submit calls API and closes |
-| RP-51 | Audit trail | `backend/models/esg.py` (`EsgOverrideAudit`), migration (triggers), `backend/services/esg_service.py`, `backend/routers/esg.py` (GET audit), `src/components/EsgAuditHistory.tsx`, `src/services/api.ts` (`fetchEsgAudit`) | `backend/tests/esg/test_esg_api.py::TestAudit`: SET then CLEAR yields two rows newest first with correct old/new values, UPDATE/DELETE on the table raises, empty list for account without history, 404 unknown account; `src/components/__tests__/EsgAuditHistory.test.tsx`: renders rows newest first, empty state |
-| RP-52 | Automated tests | `backend/tests/conftest.py` (in-memory SQLite engine, `create_all`, `TestClient` with `get_db` override), `backend/pyproject.toml` (dev group: pytest, httpx), `package.json` (`vitest`, `jsdom`, `@testing-library/react@12`, `@testing-library/jest-dom`, `@testing-library/user-event`, `test` script), `vite.config.ts` (test block), `src/test/setup.ts` | the whole suite above; `cd backend && python -m pytest tests/ -v` and `npm test` are the commands |
+| [SSTCNTRL-2](https://cog-gtm.atlassian.net/browse/SSTCNTRL-2) | Ingest monthly ESG feed into staging | `backend/esg/__init__.py`, `backend/esg/loader.py`, `backend/esg/load_esg_feed.py`, `backend/models/esg.py` (`EsgLoadBatch`, `StgEsgEmission`, `EsgLoadReject`), `backend/models/__init__.py`, `backend/migrations/versions/<rev>_add_esg_tables.py`, `backend/inbound/esg/.gitkeep`, `backend/inbound/esg/2026-10/esg_emissions_2026-10.csv`, `backend/setup_database.sh` | `backend/tests/esg/test_loader.py`: happy path counts, duplicate file is a no-op, negative emissions rejected with reason, empty revenue loads as NULL, zero/negative revenue rejected, bad header fails the batch, duplicate `investment_id` in file rejected, corrected file that drops a previously accepted holding removes its staging row, replaying the original file after a correction restores it as a new batch, all-rows-rejected and header-only files get status `F` and leave staging untouched |
+| [SSTCNTRL-3](https://cog-gtm.atlassian.net/browse/SSTCNTRL-3) | Compute WACI per portfolio in a database procedure | `backend/sql/esg/V001__compute_portfolio_waci.sql`, `backend/esg/waci.py`, `backend/models/esg.py` (`PortfolioEsgMetric`), migration | `backend/tests/esg/test_waci_procedure.py`: worked example equals 64.137484 / 91.48, missing revenue excluded and lowers coverage, zero total market value gives NULL value and 0 coverage without error, position sold mid-month (latest snapshot `status 'C'`) excluded, rerun leaves exactly one row with same values, portfolio with no emissions coverage gives NULL value, whole-number inputs (mv 100, emissions 1, revenue 2) give 0.5 not 0, rerun after the last holding closes rewrites the row as the no-position state (`positions_total 0`, NULL value) |
+| [SSTCNTRL-4](https://cog-gtm.atlassian.net/browse/SSTCNTRL-4) | Expose carbon intensity through the portfolio API | `backend/routers/esg.py`, `backend/schemas/esg.py`, `backend/services/esg_service.py`, `backend/models/database.py` (`get_db`), `backend/app/main.py` | `backend/tests/esg/test_esg_api.py::TestGetEsg`: computed payload, override payload, `hasMetric false` payload (never computed), `hasMetric false` when the latest month is a no-position row even though an older month has a value, 404 unknown account |
+| [SSTCNTRL-5](https://cog-gtm.atlassian.net/browse/SSTCNTRL-5) | Show carbon intensity on the portfolio dashboard | `src/types/esg.ts`, `src/services/api.ts` (`fetchEsgMetric`), `src/components/EsgCarbonIntensity.tsx`, `src/components/PortfolioSummary.tsx`, `src/pages/PortfolioInquiry.tsx`, `src/components/index.ts` | `src/components/__tests__/PortfolioSummary.esg.test.tsx`: computed state shows value + unit + as-of month + coverage, override state shows indicator, empty state text, loading and error states |
+| [SSTCNTRL-6](https://cog-gtm.atlassian.net/browse/SSTCNTRL-6) | Override with a reason | `backend/schemas/esg.py` (`EsgOverrideRequest`), `backend/routers/esg.py` (PUT/DELETE), `backend/services/esg_service.py`, `backend/models/esg.py` (`PortfolioEsgOverride`), `src/components/dialogs/EsgOverrideDialog.tsx`, `src/services/api.ts` (`putEsgOverride`, `clearEsgOverride`) | `backend/tests/esg/test_esg_api.py::TestOverride`: set, replace, clear, clear on a no-position month returns `source "none"` and `hasMetric false`, reason < 10 chars 422, negative value 422, 409 with no metric, 404 unknown account, applies only to current month; `src/components/__tests__/EsgOverrideDialog.test.tsx`: client-side validation messages, server 422 shown, submit calls API and closes |
+| [SSTCNTRL-7](https://cog-gtm.atlassian.net/browse/SSTCNTRL-7) | Audit trail | `backend/models/esg.py` (`EsgOverrideAudit`), migration (triggers), `backend/services/esg_service.py`, `backend/routers/esg.py` (GET audit), `src/components/EsgAuditHistory.tsx`, `src/services/api.ts` (`fetchEsgAudit`) | `backend/tests/esg/test_esg_api.py::TestAudit`: SET then CLEAR yields two rows newest first with correct old/new values, UPDATE/DELETE on the table raises, empty list for account without history, 404 unknown account; `src/components/__tests__/EsgAuditHistory.test.tsx`: renders rows newest first, empty state |
+| [SSTCNTRL-8](https://cog-gtm.atlassian.net/browse/SSTCNTRL-8) | Automated tests | `backend/tests/conftest.py` (in-memory SQLite engine, `create_all`, `TestClient` with `get_db` override), `backend/pyproject.toml` (dev group: pytest, httpx), `package.json` (`vitest`, `jsdom`, `@testing-library/react@12`, `@testing-library/jest-dom`, `@testing-library/user-event`, `test` script), `vite.config.ts` (test block), `src/test/setup.ts` | the whole suite above; `cd backend && python -m pytest tests/ -v` and `npm test` are the commands |
 
-Every commit message carries its Jira key (and "feature" per repo convention), for example `feature(RP-46): add ESG feed loader and staging tables`.
+Every commit message carries its Jira key (and "feature" per repo convention), for example `feature(SSTCNTRL-2): add ESG feed loader and staging tables`.
 
 ## 7. Acceptance criteria per story
 
-**RP-46 Ingest**
+**[SSTCNTRL-2](https://cog-gtm.atlassian.net/browse/SSTCNTRL-2) Ingest**
 - Running `python -m esg.load_esg_feed --file inbound/esg/2026-10/esg_emissions_2026-10.csv` from `backend/` creates one `esg_load_batches` row with correct counts and populates `stg_esg_emissions` and `esg_load_rejects`.
 - Running the same command again writes nothing new (batch count, staging count and rejects count unchanged) and exits 0.
 - Rows with negative scope values, non-numeric fields, bad month or duplicate `investment_id` land in `esg_load_rejects` with the reason codes in 5.1; empty `revenue_musd` is accepted as NULL.
@@ -400,7 +400,7 @@ Every commit message carries its Jira key (and "feature" per repo convention), f
 - A file with the right header but no data rows, or with every row rejected, writes a batch with status `F` (`EMPTY_FILE` / `ALL_ROWS_REJECTED`), writes its rejects, leaves `stg_esg_emissions` unchanged and exits 1.
 - `--all` scans `inbound/esg/*/` and loads every file not yet loaded.
 
-**RP-47 Procedure**
+**[SSTCNTRL-3](https://cog-gtm.atlassian.net/browse/SSTCNTRL-3) Procedure**
 - `python -m esg.compute_waci --as-of-month 2026-10` produces one `portfolio_esg_metrics` row per portfolio with active positions, values matching section 5.3 to six decimals.
 - Missing revenue reduces `coverage_pct` and never enters the numerator.
 - A portfolio whose active market value is zero gets `coverage_pct 0` and `computed_value NULL`, no exception.
@@ -410,31 +410,31 @@ Every commit message carries its Jira key (and "feature" per repo convention), f
 - Rerunning after a portfolio's last active holding has a closed snapshot dated in the month rewrites its `portfolio_esg_metrics` row as the no-position state, and `GET .../esg` returns `hasMetric: false` even when an earlier month has a value.
 - The calculation lives entirely in `backend/sql/esg/V001__compute_portfolio_waci.sql`; `waci.py` only binds parameters, executes and commits.
 
-**RP-48 API**
+**[SSTCNTRL-4](https://cog-gtm.atlassian.net/browse/SSTCNTRL-4) API**
 - `GET /api/portfolio/1234567890/esg` returns the 4.1 payload with `source` in `computed | override | none`.
 - Unknown account returns 404 with `{"detail": "Account not found"}`.
 - `effectiveValue` equals `override.value` when an override exists, otherwise `computedValue`.
 - When the latest month's row has `positions_total 0`, the response is `hasMetric: false` with that month's `asOfMonth`; an older month's value is never returned as current.
 
-**RP-49 Dashboard**
+**[SSTCNTRL-5](https://cog-gtm.atlassian.net/browse/SSTCNTRL-5) Dashboard**
 - `PortfolioSummary` shows a "Carbon intensity (WACI)" tile with the effective value formatted to two decimals, the unit `tCO2e / $M revenue`, "As of <Month YYYY>" and "Coverage <n>%".
 - When `source === 'override'` the tile shows an "Override" badge and the computed value as secondary text.
 - When `hasMetric === false` the tile shows "No carbon intensity data for this portfolio yet".
 - The tile does not block or break the existing summary when the ESG request fails (error text inside the tile, rest of the page unchanged).
 
-**RP-50 Override**
+**[SSTCNTRL-6](https://cog-gtm.atlassian.net/browse/SSTCNTRL-6) Override**
 - "Override" button on the tile opens a modal (focus-trapped, Escape closes, same pattern as `ConfirmationDialog`) with value and reason fields.
 - Client validation mirrors the server: value required and >= 0, reason >= 10 characters; the submit button stays disabled until valid.
 - Server 422 messages are shown inline; on 200 the tile updates to the override state without a page reload.
 - "Clear override" is available when an override is active and also requires a reason.
 - The server stores the override against the portfolio's current as-of month only.
 
-**RP-51 Audit**
+**[SSTCNTRL-7](https://cog-gtm.atlassian.net/browse/SSTCNTRL-7) Audit**
 - Every SET and CLEAR appends exactly one `esg_override_audit` row; no code path updates or deletes rows and the database triggers reject attempts.
 - `GET .../esg/audit` returns newest first with who, when, old value, new value, reason and month.
 - "History" link on the tile opens a panel listing the entries; empty state reads "No override history".
 
-**RP-52 Tests**
+**[SSTCNTRL-8](https://cog-gtm.atlassian.net/browse/SSTCNTRL-8) Tests**
 - `cd backend && python -m pytest tests/esg -v` passes; the full suite still has only the 10 pre-existing `TestValidateAccountNumber` failures.
 - `npm test` passes and `npm run build` (tsc + vite) stays green.
 - Tests cover at minimum: duplicate file, missing revenue, zero market value, position sold mid-month, negative emissions rejected, the three endpoints, and dashboard computed / override / empty states.
