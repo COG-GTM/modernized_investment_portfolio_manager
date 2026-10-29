@@ -1,4 +1,5 @@
 import Card from './Card';
+import CarbonIntensityCard, { type CarbonIntensityCardProps } from './CarbonIntensityCard';
 import { Portfolio } from '../types';
 import { formatCurrency, formatPercentage, formatLastUpdated, getGainLossColorClass } from '../utils/format';
 
@@ -6,9 +7,11 @@ interface PortfolioSummaryProps {
   portfolio: Portfolio;
   onNewSearch?: () => void;
   className?: string;
+  /** Carbon intensity (WACI) panel; omitted when the caller does not track ESG data. */
+  esg?: Omit<CarbonIntensityCardProps, 'className'>;
 }
 
-export default function PortfolioSummary({ portfolio, onNewSearch, className = '' }: PortfolioSummaryProps) {
+export default function PortfolioSummary({ portfolio, onNewSearch, className = '', esg }: PortfolioSummaryProps) {
   const gainLossColorClass = getGainLossColorClass(portfolio.totalGainLoss);
 
   return (
@@ -51,6 +54,8 @@ export default function PortfolioSummary({ portfolio, onNewSearch, className = '
             </p>
           </div>
         </div>
+
+        {esg && <CarbonIntensityCard {...esg} />}
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
           <div>
