@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import io
 import os
 import re
 from collections.abc import Sequence
@@ -19,6 +20,7 @@ from decimal import Decimal, localcontext
 from pathlib import Path
 
 from sqlalchemy import delete, select
+from sqlalchemy import text as sql_text
 from sqlalchemy.orm import Session
 
 from models.esg import EsgLoadBatch, EsgLoadReject, StgEsgEmission
@@ -125,8 +127,38 @@ def _decode(path: Path, data: bytes) -> str:
     return text
 
 
-def _parse_line(line: str) -> list[str]:
-    return [value.strip() for value in next(csv.reader([line]))]
+PHYSICAL_LINE_RE = re.compile(r"\r\n|\r|\n")
+UPSERT_CHUNK_ROWS = 500
+MONTH_LOCK_NAMESPACE = 0x45534700_000000
+
+
+def _records(content: str) -> list[tuple[int, str, list[str]]]:
+    """(first physical line number, raw source text, stripped fields) per CSV record.
+
+    Parses the whole file so quoted cells that span lines stay one record.
+    """
+    physical = PHYSICAL_LINE_RE.split(content)
+    reader = csv.reader(io.StringIO(content, newline=""))
+    records = []
+    while True:
+        start = reader.line_num + 1
+        try:
+            fields = next(reader)
+        except StopIteration:
+            return records
+        raw = "\n".join(physical[start - 1 : reader.line_num])
+        records.append((start, raw, [value.strip() for value in fields]))
+
+
+def _lock_month(session: Session, month: str) -> None:
+    """Serialize loads of one month until commit/rollback so concurrent snapshots cannot interleave."""
+    dialect = session.get_bind().dialect.name
+    if dialect == "postgresql":
+        key = MONTH_LOCK_NAMESPACE + int(month.replace("-", ""))
+        session.execute(sql_text("SELECT pg_advisory_xact_lock(:key)"), {"key": key})
+    elif dialect == "sqlite":
+        # A no-op write takes SQLite's RESERVED lock, so a second loader waits here before it reads.
+        session.execute(sql_text("UPDATE esg_load_batches SET batch_id = batch_id WHERE 0"))
 
 
 def _reject(code: str, detail: str) -> str:
@@ -245,13 +277,14 @@ def _upsert_staging(session: Session, rows: list[dict]) -> None:
         for row in rows:
             session.merge(StgEsgEmission(**row))
         return
-    stmt = insert(StgEsgEmission).values(rows)
     updatable = ("scope1_tco2e", "scope2_tco2e", "revenue_musd", "batch_id", "source_row_no", "loaded_at")
-    stmt = stmt.on_conflict_do_update(
-        index_elements=["as_of_month", "investment_id"],
-        set_={name: stmt.excluded[name] for name in updatable},
-    )
-    session.execute(stmt)
+    for start in range(0, len(rows), UPSERT_CHUNK_ROWS):
+        stmt = insert(StgEsgEmission).values(rows[start : start + UPSERT_CHUNK_ROWS])
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["as_of_month", "investment_id"],
+            set_={name: stmt.excluded[name] for name in updatable},
+        )
+        session.execute(stmt)
 
 
 def load_feed(session: Session, path: str | Path, root: str | Path | None = None) -> LoadResult:
@@ -263,36 +296,22 @@ def load_feed(session: Session, path: str | Path, root: str | Path | None = None
     file_month = month_from_path(path)
     data = path.read_bytes()
     sha256 = hashlib.sha256(data).hexdigest()
-    text = _decode(path, data)
+    content = _decode(path, data)
     rel_path = _relative_file_path(path, root_path)
 
-    previous = _previous_batch(session, file_month, sha256)
-    if previous is not None:
-        return LoadResult(
-            batch_id=previous.batch_id,
-            file_path=rel_path,
-            as_of_month=file_month,
-            status=previous.status,
-            failure_reason=previous.failure_reason,
-            row_count=previous.row_count,
-            accepted_count=previous.accepted_count,
-            rejected_count=previous.rejected_count,
-            skipped=True,
-        )
-
-    lines = text.splitlines()
-    header = _parse_line(lines[0]) if lines else []
+    records = _records(content)
+    header = records[0][2] if records else []
     rows: list[_Row] = []
     failure_reason = None
     if header != EXPECTED_HEADER:
         failure_reason = BAD_HEADER
     else:
         seen_ids: set = set()
-        for line_no, line in enumerate(lines[1:], start=2):
-            if not line.strip():
+        for line_no, raw, fields in records[1:]:
+            if not fields:
                 continue
-            row = _Row(source_row_no=line_no - 1, raw_line=line)
-            _validate(row, _parse_line(line), file_month, seen_ids)
+            row = _Row(source_row_no=line_no - 1, raw_line=raw)
+            _validate(row, fields, file_month, seen_ids)
             rows.append(row)
 
     accepted = [r for r in rows if r.reason is None]
@@ -305,6 +324,23 @@ def load_feed(session: Session, path: str | Path, root: str | Path | None = None
 
     now = datetime.now()
     try:
+        _lock_month(session, file_month)
+        previous = _previous_batch(session, file_month, sha256)
+        if previous is not None:
+            skipped = LoadResult(
+                batch_id=previous.batch_id,
+                file_path=rel_path,
+                as_of_month=file_month,
+                status=previous.status,
+                failure_reason=previous.failure_reason,
+                row_count=previous.row_count,
+                accepted_count=previous.accepted_count,
+                rejected_count=previous.rejected_count,
+                skipped=True,
+            )
+            session.rollback()
+            return skipped
+
         batch = EsgLoadBatch(
             file_path=rel_path,
             file_sha256=sha256,

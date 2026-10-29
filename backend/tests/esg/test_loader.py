@@ -308,3 +308,87 @@ def test_migration_creates_and_drops_the_load_tables(tmp_path, monkeypatch):
     command.downgrade(config, "40a256798f94")
     assert not tables & set(inspect(engine).get_table_names())
     engine.dispose()
+
+
+class TestReviewFollowUps:
+    def test_quoted_cell_spanning_lines_is_one_record(self, session, inbound):
+        raw = f'{HEADER}\n2026-10,A,1,2,3\n2026-10,"BAD\n2026-10,FAKE,1,2,3",1,2,3\n2026-10,B,1,2,3\n'.encode()
+        result = load_feed(session, write_feed(inbound, "2026-10", [], raw=raw))
+
+        assert (result.row_count, result.accepted_count, result.rejected_count) == (3, 2, 1)
+        assert set(staged(session)) == {"A", "B"}
+        reject = session.query(EsgLoadReject).one()
+        assert reject.reason.startswith("MISSING_INVESTMENT_ID:")
+        assert reject.source_row_no == 2
+        assert reject.raw_line == '2026-10,"BAD\n2026-10,FAKE,1,2,3",1,2,3'
+        assert staged(session)["B"].source_row_no == 4, "row numbers still follow physical lines"
+
+    def test_feed_larger_than_sqlite_bind_limit_loads(self, session, inbound):
+        rows = [f"2026-10,ID{i:05d},1.5,2.5,3.5" for i in range(6000)]
+        result = load_feed(session, write_feed(inbound, "2026-10", rows))
+        assert (result.status, result.accepted_count) == ("C", 6000)
+        assert session.query(StgEsgEmission).count() == 6000
+
+    @staticmethod
+    def _race(tmp_path, first_path, second_path):
+        """Start a second load of the month while the first is mid-transaction; return the db session factory."""
+        import threading
+
+        from sqlalchemy.orm import sessionmaker
+
+        from models.database import Base
+
+        engine = create_engine(f"sqlite:///{tmp_path / 'race.db'}", connect_args={"timeout": 30})
+        Base.metadata.create_all(engine)
+        factory = sessionmaker(bind=engine)
+        in_upsert, release = threading.Event(), threading.Event()
+        original = loader._upsert_staging
+        errors, results = [], []
+
+        def slow_upsert(session, rows):
+            original(session, rows)
+            if not in_upsert.is_set():
+                in_upsert.set()
+                release.wait(5)
+
+        def run(path):
+            session = factory()
+            try:
+                results.append(load_feed(session, path, path.parents[2]))
+            except Exception as exc:  # noqa: BLE001  surfaced by the assertion below
+                errors.append(exc)
+            finally:
+                session.close()
+
+        loader._upsert_staging = slow_upsert
+        try:
+            t1 = threading.Thread(target=run, args=(first_path,))
+            t1.start()
+            assert in_upsert.wait(5)
+            t2 = threading.Thread(target=run, args=(second_path,))
+            t2.start()
+            t2.join(0.5)
+            release.set()
+            t1.join(10)
+            t2.join(10)
+        finally:
+            loader._upsert_staging = original
+        assert not errors
+        return factory, results
+
+    def test_concurrent_loads_of_one_month_do_not_merge_snapshots(self, tmp_path, inbound):
+        first = write_feed(inbound / "a", "2026-10", ["2026-10,AAPL,1,2,3"])
+        second = write_feed(inbound / "b", "2026-10", ["2026-10,MSFT,1,2,3"])
+        factory, _ = self._race(tmp_path, first, second)
+        session = factory()
+        assert set(staged(session)) == {"MSFT"}, "the later load replaces the earlier snapshot"
+        assert session.query(EsgLoadBatch).count() == 2
+        session.close()
+
+    def test_concurrent_runs_of_the_same_file_load_it_once(self, tmp_path, inbound):
+        path = write_feed(inbound / "a", "2026-10", ["2026-10,AAPL,1,2,3", "2026-10,MSFT,-1,2,3"])
+        factory, results = self._race(tmp_path, path, path)
+        session = factory()
+        assert sorted(r.skipped for r in results) == [False, True]
+        assert counts(session) == (1, 1, 1)
+        session.close()
