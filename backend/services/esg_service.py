@@ -81,10 +81,13 @@ def _parse_decimal(raw: Optional[str], column: str, errors: List[str], *, requir
         return None
     # Check the value as it will be stored, not as written: round to the column scale first.
     # adjusted() reads the exponent without arithmetic, so "1e1000000" cannot raise decimal.Overflow.
-    if parsed.adjusted() >= 14:
+    if parsed != 0 and parsed.adjusted() >= 14:
         errors.append(f"{column} exceeds the Numeric(18,4) range: {value!r}")
         return None
-    stored = parsed.quantize(NUMERIC_SCALE, rounding=ROUND_HALF_UP) if parsed.adjusted() >= -6 else Decimal("0.0000")
+    if parsed == 0 or parsed.adjusted() < -6:
+        stored = Decimal("0.0000")
+    else:
+        stored = parsed.quantize(NUMERIC_SCALE, rounding=ROUND_HALF_UP)
     if abs(stored) >= NUMERIC_MAX_EXCLUSIVE:
         errors.append(f"{column} exceeds the Numeric(18,4) range after rounding to 4 decimals: {value!r}")
         return None
