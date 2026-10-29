@@ -98,16 +98,16 @@ async function esgRequest<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
-/** Returns null when the account has no carbon intensity metric yet (404). */
+/**
+ * Returns null when the account has no carbon intensity metric yet (200 with has_metric false / source "none").
+ * A 404 means the account itself is unknown and is surfaced as an error, not as the empty state.
+ */
 export async function fetchEsgMetric(accountNumber: string): Promise<EsgMetric | null> {
-  try {
-    return await esgRequest<EsgMetric>(`/portfolio/${accountNumber}/esg`);
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 404) {
-      return null;
-    }
-    throw error;
+  const metric = await esgRequest<EsgMetric>(`/portfolio/${accountNumber}/esg`);
+  if (metric.has_metric === false || metric.source === 'none' || metric.as_of_month === null) {
+    return null;
   }
+  return metric;
 }
 
 export async function putEsgOverride(accountNumber: string, value: number, reason: string): Promise<EsgMetric> {

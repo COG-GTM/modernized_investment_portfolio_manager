@@ -43,24 +43,33 @@ export default function PortfolioInquiry() {
         : await deleteEsgOverride(portfolioData.accountNumber, reason);
       esg.setMetric(updated);
       setOverrideModal((state) => ({ ...state, open: false }));
+      if (historyOpen) {
+        await loadHistory(portfolioData.accountNumber);
+      }
     } catch (err) {
       setOverrideError(err instanceof ApiError ? err.message : 'Unable to save the override. Please try again.');
     }
   };
 
-  const openHistory = async () => {
-    if (!portfolioData) return;
-    setHistoryOpen(true);
+  // History is re-read from the server on open and after every successful override or clear,
+  // so an open history panel never shows a stale trail without a page reload.
+  const loadHistory = async (accountNumber: string) => {
     setHistoryLoading(true);
     setHistoryError(null);
     try {
-      const response = await fetchEsgAudit(portfolioData.accountNumber);
+      const response = await fetchEsgAudit(accountNumber);
       setHistoryEntries(response.entries);
     } catch (err) {
       setHistoryError(err instanceof ApiError ? err.message : 'Unable to load override history.');
     } finally {
       setHistoryLoading(false);
     }
+  };
+
+  const openHistory = async () => {
+    if (!portfolioData) return;
+    setHistoryOpen(true);
+    await loadHistory(portfolioData.accountNumber);
   };
 
   const closeHistory = useCallback(() => setHistoryOpen(false), []);

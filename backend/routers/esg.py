@@ -1,7 +1,7 @@
 """Carbon intensity (WACI) endpoints for the portfolio API (RP-48, RP-50, RP-51)."""
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from models.database import get_db
@@ -11,11 +11,29 @@ from models.esg_schemas import (
     EsgOverrideDetails, EsgOverrideRequest,
 )
 from services import esg_service
-from services.esg_service import EsgValidationError, PortfolioNotFound
+from services.esg_service import EsgStateError, EsgValidationError, PortfolioNotFound
 
 router = APIRouter(prefix="/api", tags=["esg"])
 
 DEFAULT_USER = "portfolio_manager"
+MAX_USER_LENGTH = 64
+
+
+def _resolve_user(x_user: Optional[str]) -> str:
+    """The X-User header is the only identity the app has today; keep it bounded and non-blank."""
+    user = (x_user or "").strip()
+    if not user:
+        return DEFAULT_USER
+    if len(user) > MAX_USER_LENGTH:
+        raise HTTPException(status_code=422, detail=f"X-User must be at most {MAX_USER_LENGTH} characters")
+    return user
+
+
+def _empty_metric_response(account_number: str, portfolio_id: str) -> EsgMetricResponse:
+    return EsgMetricResponse(
+        account_number=account_number, portfolio_id=portfolio_id, has_metric=False, as_of_month=None,
+        computed_value=None, effective_value=None, source="none", coverage_pct=None, computed_at=None, override=None,
+    )
 
 
 def _to_float(value):
@@ -57,7 +75,7 @@ def get_esg_metric(account_number: str, db: Session = Depends(get_db)):
     portfolio = _portfolio_or_404(db, account_number)
     metric = esg_service.get_current_metric(db, portfolio.port_id)
     if metric is None:
-        raise HTTPException(status_code=404, detail="No carbon intensity metric available for this account")
+        return _empty_metric_response(account_number, portfolio.port_id)
     return _metric_response(account_number, metric)
 
 
@@ -70,10 +88,13 @@ def put_esg_override(
 ):
     """Override the WACI for the current as-of month. Reason is mandatory (min 10 chars)."""
     portfolio = _portfolio_or_404(db, account_number)
+    user = _resolve_user(x_user)
     try:
-        metric = esg_service.set_override(db, portfolio.port_id, body.value, body.reason, x_user or DEFAULT_USER)
+        metric = esg_service.set_override(db, portfolio.port_id, body.value, body.reason, user)
     except EsgValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+    except EsgStateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     return _metric_response(account_number, metric)
 
 
@@ -86,16 +107,24 @@ def delete_esg_override(
 ):
     """Clear the override for the current as-of month (audited)."""
     portfolio = _portfolio_or_404(db, account_number)
+    user = _resolve_user(x_user)
     try:
-        metric = esg_service.clear_override(db, portfolio.port_id, body.reason, x_user or DEFAULT_USER)
+        metric = esg_service.clear_override(db, portfolio.port_id, body.reason, user)
     except EsgValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
+    except EsgStateError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     return _metric_response(account_number, metric)
 
 
 @router.get("/portfolio/{account_number}/esg/audit", response_model=EsgAuditResponse)
-def get_esg_audit(account_number: str, db: Session = Depends(get_db)):
-    """Override history, newest first."""
+def get_esg_audit(
+    account_number: str,
+    limit: int = Query(50, ge=1, le=500, description="Page size"),
+    offset: int = Query(0, ge=0, description="Entries to skip, newest first"),
+    db: Session = Depends(get_db),
+):
+    """Override history, newest first, paginated with limit/offset."""
     portfolio = _portfolio_or_404(db, account_number)
     entries = [
         EsgAuditEntry(
@@ -108,6 +137,6 @@ def get_esg_audit(account_number: str, db: Session = Depends(get_db)):
             changed_by=row.changed_by,
             changed_at=row.changed_at,
         )
-        for row in esg_service.list_audit(db, portfolio.port_id)
+        for row in esg_service.list_audit(db, portfolio.port_id, limit=limit, offset=offset)
     ]
     return EsgAuditResponse(account_number=account_number, portfolio_id=portfolio.port_id, entries=entries)

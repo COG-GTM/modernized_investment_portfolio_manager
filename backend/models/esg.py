@@ -1,7 +1,7 @@
 """SQLAlchemy models for the ESG emissions feed, WACI metrics and override audit (RP-45)."""
 from sqlalchemy import (
     Column, String, Numeric, DateTime, Integer, Text, ForeignKey,
-    UniqueConstraint, Index, CheckConstraint,
+    UniqueConstraint, Index, CheckConstraint, DDL, event,
 )
 from .database import Base
 
@@ -102,3 +102,16 @@ class EsgOverrideAudit(Base):
         Index("idx_esg_override_audit_portfolio", "portfolio_id", "as_of_month"),
         Index("idx_esg_override_audit_changed_at", "changed_at"),
     )
+
+
+AUDIT_APPEND_ONLY_TRIGGERS = (
+    """CREATE TRIGGER IF NOT EXISTS trg_esg_override_audit_no_update
+       BEFORE UPDATE ON esg_override_audit
+       BEGIN SELECT RAISE(ABORT, 'esg_override_audit is append-only'); END""",
+    """CREATE TRIGGER IF NOT EXISTS trg_esg_override_audit_no_delete
+       BEFORE DELETE ON esg_override_audit
+       BEGIN SELECT RAISE(ABORT, 'esg_override_audit is append-only'); END""",
+)
+
+for _ddl in AUDIT_APPEND_ONLY_TRIGGERS:
+    event.listen(EsgOverrideAudit.__table__, "after_create", DDL(_ddl).execute_if(dialect="sqlite"))

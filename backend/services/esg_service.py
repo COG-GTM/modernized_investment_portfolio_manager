@@ -34,6 +34,10 @@ class EsgValidationError(Exception):
     """Raised for invalid override requests; message is safe to show to the user."""
 
 
+class EsgStateError(Exception):
+    """Raised when the request is well formed but the portfolio is not in a state that allows it (409)."""
+
+
 class PortfolioNotFound(Exception):
     pass
 
@@ -246,11 +250,13 @@ def _validate_reason(reason: Optional[str]) -> str:
 def set_override(db: Session, portfolio_id: str, value: Decimal, reason: str, changed_by: str) -> PortfolioEsgMetrics:
     """Override the WACI for the current as-of month and append an audit row."""
     reason = _validate_reason(reason)
-    if value is None or Decimal(value) < 0:
+    if value is None or not Decimal(value).is_finite():
+        raise EsgValidationError("Override value must be a finite number")
+    if Decimal(value) < 0:
         raise EsgValidationError("Override value must be non-negative")
     metric = get_current_metric(db, portfolio_id)
     if metric is None:
-        raise EsgValidationError("No carbon intensity metric exists for this portfolio yet; load the ESG feed first")
+        raise EsgStateError("No carbon intensity metric exists for this portfolio yet; load the ESG feed first")
     now = datetime.now()
     old_value = metric.effective_value
     metric.override_value = Decimal(value)
@@ -277,9 +283,9 @@ def clear_override(db: Session, portfolio_id: str, reason: str, changed_by: str)
     reason = _validate_reason(reason)
     metric = get_current_metric(db, portfolio_id)
     if metric is None:
-        raise EsgValidationError("No carbon intensity metric exists for this portfolio")
+        raise EsgStateError("No carbon intensity metric exists for this portfolio")
     if metric.override_value is None:
-        raise EsgValidationError("There is no override to clear for the current as-of month")
+        raise EsgStateError("There is no override to clear for the current as-of month")
     now = datetime.now()
     old_value = metric.override_value
     metric.override_value = None
@@ -301,10 +307,12 @@ def clear_override(db: Session, portfolio_id: str, reason: str, changed_by: str)
     return metric
 
 
-def list_audit(db: Session, portfolio_id: str) -> List[EsgOverrideAudit]:
+def list_audit(db: Session, portfolio_id: str, limit: int = 50, offset: int = 0) -> List[EsgOverrideAudit]:
     return (
         db.query(EsgOverrideAudit)
         .filter(EsgOverrideAudit.portfolio_id == portfolio_id)
         .order_by(EsgOverrideAudit.changed_at.desc(), EsgOverrideAudit.id.desc())
+        .offset(offset)
+        .limit(limit)
         .all()
     )
