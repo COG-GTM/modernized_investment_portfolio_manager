@@ -78,6 +78,12 @@ class TestOverride:
         response = computed.put(f"{ESG_URL}/override", json={"value": -1, "reason": VALID_REASON})
         assert response.status_code == 422
 
+    def test_non_finite_value_rejected(self, computed):
+        for bad in ("Infinity", "NaN"):
+            response = computed.put(f"{ESG_URL}/override", content='{"value": %s, "reason": "%s"}' % (bad, VALID_REASON),
+                                    headers={"content-type": "application/json"})
+            assert response.status_code == 422, bad
+
     def test_zero_value_allowed(self, computed):
         response = computed.put(f"{ESG_URL}/override", json={"value": 0, "reason": VALID_REASON})
         assert response.status_code == 200 and response.json()["effective_value"] == 0

@@ -1,9 +1,7 @@
-import math
-
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import psycopg
 from routers import portfolio, accounts, esg
 
@@ -23,21 +21,11 @@ app.add_middleware(
 )
 
 
-
-def _json_safe(value):
-    """Validation errors echo the rejected input; NaN/Infinity are not valid JSON and would turn a 422 into a 500."""
-    if isinstance(value, float) and not math.isfinite(value):
-        return repr(value)
-    if isinstance(value, dict):
-        return {k: _json_safe(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_json_safe(v) for v in value]
-    return value
-
-
 @app.exception_handler(RequestValidationError)
-async def validation_error_handler(_: Request, exc: RequestValidationError):
-    return JSONResponse(status_code=422, content={"detail": _json_safe(exc.errors())})
+async def request_validation_handler(request: Request, exc: RequestValidationError):
+    # Do not echo the submitted input: it may be non-serialisable (e.g. a non-finite number).
+    errors = [{k: v for k, v in err.items() if k in ("type", "loc", "msg")} for err in exc.errors()]
+    return JSONResponse(status_code=422, content={"detail": errors})
 
 
 app.include_router(portfolio.router)

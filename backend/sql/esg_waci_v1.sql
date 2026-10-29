@@ -6,8 +6,10 @@
 --   unit: tCO2e per $M revenue
 --
 -- Rules
---   * Active positions only (positions.status = 'A'). A holding sold during the month is
---     closed ('C') at month end and therefore excluded.
+--   * Positions are dated snapshots. For each (portfolio, investment) the latest snapshot
+--     dated on or before the as-of month end is used; later snapshots are ignored. Only a
+--     snapshot that is active ('A') with quantity > 0 is weighted, so a holding sold during
+--     the month (latest snapshot 'C', or quantity 0) is excluded.
 --   * Holdings with no staging row for the month, or with NULL / non-positive revenue,
 --     are excluded from the sum and counted against coverage_pct.
 --   * coverage_pct = covered market value / total market value * 100.
@@ -21,15 +23,35 @@
 -- SQL Server equivalent: this body would be the stored procedure dbo.usp_compute_portfolio_waci
 -- with the INSERT ... ON CONFLICT replaced by MERGE.
 
-WITH active_positions AS (
+WITH month_end AS (
+    SELECT date(:as_of_month || '-01', '+1 month', '-1 day') AS as_of_date
+),
+position_snapshots AS (
     SELECT
         p.portfolio_id,
         p.investment_id,
-        CAST(p.market_value AS REAL) AS market_value
+        p.status,
+        p.quantity,
+        p.market_value,
+        ROW_NUMBER() OVER (
+            PARTITION BY p.portfolio_id, p.investment_id
+            ORDER BY p.date DESC
+        ) AS snapshot_rank
     FROM positions AS p
-    WHERE p.status = 'A'
-      AND p.market_value IS NOT NULL
-      AND p.market_value > 0
+    CROSS JOIN month_end AS m
+    WHERE p.date <= m.as_of_date
+),
+active_positions AS (
+    SELECT
+        s.portfolio_id,
+        s.investment_id,
+        CAST(s.market_value AS REAL) AS market_value
+    FROM position_snapshots AS s
+    WHERE s.snapshot_rank = 1
+      AND s.status = 'A'
+      AND s.quantity > 0
+      AND s.market_value IS NOT NULL
+      AND s.market_value > 0
 ),
 portfolio_totals AS (
     SELECT

@@ -112,8 +112,10 @@ def load_esg_feed(db: Session, path: str | Path) -> LoadResult:
     """Copy a monthly emissions CSV into stg_esg_emissions; malformed rows go to esg_load_rejects.
 
     Re-running the same file (same SHA-256) is a no-op and returns the original batch.
-    A corrected re-send of a month (different content) replaces the staging rows for
-    (as_of_month, investment_id) instead of duplicating them.
+    A file is the complete feed for the month(s) it contains: a corrected re-send
+    (different content) replaces the staging rows for those months, so investments that
+    are no longer in the file (or whose rows are now rejected) drop out of staging.
+    Load batch and reject history are retained.
     """
     path = Path(path)
     if not path.is_file():
@@ -123,10 +125,18 @@ def load_esg_feed(db: Session, path: str | Path) -> LoadResult:
 
     existing = db.query(EsgLoadBatch).filter(EsgLoadBatch.file_sha256 == sha256).first()
     if existing:
+        staged_months = [
+            m for (m,) in db.query(StgEsgEmissions.as_of_month)
+            .filter(StgEsgEmissions.load_batch_id == existing.batch_id)
+            .distinct()
+            .order_by(StgEsgEmissions.as_of_month)
+        ]
+        if not staged_months and existing.as_of_month:
+            staged_months = [existing.as_of_month]
         return LoadResult(
             batch_id=existing.batch_id,
             file_name=existing.file_name,
-            as_of_months=[existing.as_of_month] if existing.as_of_month else [],
+            as_of_months=staged_months,
             loaded_rows=existing.loaded_rows,
             rejected_rows=existing.rejected_rows,
             skipped=True,
@@ -152,10 +162,14 @@ def load_esg_feed(db: Session, path: str | Path) -> LoadResult:
 
     seen: set[tuple[str, str]] = set()
     months: set[str] = set()
+    file_months: set[str] = set()
     rejects: List[dict] = []
     loaded = 0
     for row_no, raw in enumerate(reader, start=2):
         raw = {(k or "").strip(): v for k, v in raw.items()}
+        raw_month = (raw.get("as_of_month") or "").strip()
+        if AS_OF_MONTH_RE.match(raw_month):
+            file_months.add(raw_month)
         clean, errors = validate_feed_row(raw)
         if clean:
             key = (clean["as_of_month"], clean["investment_id"])
@@ -191,6 +205,14 @@ def load_esg_feed(db: Session, path: str | Path) -> LoadResult:
         staged.source_row_no = row_no
         staged.loaded_at = now
         loaded += 1
+
+    for month in file_months:
+        stale = db.query(StgEsgEmissions).filter(StgEsgEmissions.as_of_month == month)
+        kept_ids = [inv for (m, inv) in seen if m == month]
+        if kept_ids:
+            stale = stale.filter(StgEsgEmissions.investment_id.notin_(kept_ids))
+        stale.delete(synchronize_session=False)
+        months.add(month)
 
     batch.loaded_rows = loaded
     batch.rejected_rows = len(rejects)
