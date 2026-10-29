@@ -67,11 +67,12 @@ All new tables are created in one Alembic revision (`add_esg_tables`, `down_revi
 | --- | --- | --- |
 | `batch_id` | Integer PK autoincrement | load batch id referenced by staging and rejects |
 | `file_path` | String(255) not null | path relative to the inbound root, e.g. `esg/2026-10/esg_emissions_2026-10.csv` |
-| `file_sha256` | String(64) not null, unique | idempotency key; re-running the same bytes is a no-op |
+| `file_sha256` | String(64) not null, indexed | idempotency key; re-running the bytes of the month's latest completed batch is a no-op (see 5.1) |
 | `as_of_month` | String(7) not null | derived from the folder/file name, must equal every row's `as_of_month` |
 | `loaded_at` | DateTime not null | |
 | `row_count` / `accepted_count` / `rejected_count` | Integer not null | row_count excludes the header |
-| `status` | String(1) check in `('C','F')` | C complete, F failed (file-level problem such as bad header) |
+| `status` | String(1) check in `('C','F')` | C complete, F failed (file-level problem: bad header, no data rows, or every row rejected) |
+| `failure_reason` | String(30) nullable | `BAD_HEADER`, `EMPTY_FILE`, `ALL_ROWS_REJECTED`; NULL when status is C |
 
 ### 3.2 `stg_esg_emissions` (staging, one row per holding per month)
 
@@ -105,13 +106,15 @@ Indexes: `idx_stg_esg_batch_id`. The PK `(as_of_month, investment_id)` plus upse
 | --- | --- | --- |
 | `port_id` | String(8) PK, FK -> `portfolios.port_id` | |
 | `as_of_month` | String(7) PK | |
-| `computed_value` | Numeric(18,6) nullable | WACI in tCO2e per $M revenue; NULL when coverage is 0 or total market value is 0 |
+| `computed_value` | Numeric(18,6) nullable | WACI in tCO2e per $M revenue; NULL when coverage is 0, total market value is 0, or the portfolio has no active positions |
 | `coverage_pct` | Numeric(7,4) not null | covered market value / total active market value * 100, 0 when total is 0 |
 | `total_market_value` | Numeric(18,2) not null | sum of active position market value for the month (excludes cash) |
 | `covered_market_value` | Numeric(18,2) not null | subset with emissions and positive revenue |
 | `positions_total` / `positions_covered` | Integer not null | |
 | `procedure_version` | String(20) not null | e.g. `V001` from the SQL script name |
 | `computed_at` | DateTime not null | |
+
+Every portfolio gets exactly one row per computed month, including portfolios with no active position at month end; that row has `positions_total 0`, `total_market_value 0`, `coverage_pct 0` and `computed_value NULL` and is the explicit "no metric" state. Writing it (rather than deleting or skipping) is what stops an older month from resurfacing as the current value when a portfolio's last holding is closed.
 
 ### 3.5 `portfolio_esg_overrides` (current override, at most one per portfolio-month)
 
@@ -151,7 +154,7 @@ Shared error shapes: `404 {"detail": "Account not found"}` when no portfolio row
 
 ### 4.1 `GET /api/portfolio/{account_number}/esg`
 
-Returns the metric for the portfolio's current as-of month (the greatest `as_of_month` in `portfolio_esg_metrics` for that `port_id`).
+Returns the metric for the portfolio's current as-of month (the greatest `as_of_month` in `portfolio_esg_metrics` for that `port_id`). If that row has `positions_total = 0` the response uses the `hasMetric: false` shape below with `asOfMonth` and `computedAt` populated from the row (and `override` populated if one exists for that month, so the UI can still offer "Clear override"); the UI must never fall back to an earlier month. `hasMetric: false` with `asOfMonth: null` means nothing has ever been computed for the portfolio.
 
 200 with an override in place:
 ```json
@@ -266,33 +269,18 @@ Ordered by `changed_at DESC, audit_id DESC`. `limit` is optional, default 50, ma
 
 File contract: UTF-8 CSV with header exactly `as_of_month,investment_id,scope1_tco2e,scope2_tco2e,revenue_musd`, located at `esg/<YYYY-MM>/esg_emissions_<YYYY-MM>.csv`. The loader:
 
-1. Computes the SHA-256 of the file. If `esg_load_batches.file_sha256` already exists with status `C`, logs "already loaded as batch N" and exits 0 without writing anything (idempotent re-run).
-2. Validates the header; on mismatch writes a batch with status `F` and exits 1.
+1. Computes the SHA-256 of the file and derives `as_of_month` from the path. If the month's latest batch with status `C` has the same `file_sha256`, logs "already loaded as batch N" and exits 0 without writing anything (idempotent re-run). A matching hash on an older, superseded batch does not short-circuit: replaying the provider's original file after a correction is a new batch that restores that snapshot, so a withdrawn correction can be undone by reloading the earlier file. Batch rows are never updated or deleted.
+2. Validates the header; on mismatch writes a batch with status `F`, `failure_reason BAD_HEADER` and exits 1.
 3. For each data row applies, in order, the reject reasons: `INVALID_AS_OF_MONTH` (not `YYYY-MM` or not equal to the folder month), `MISSING_INVESTMENT_ID` (empty or longer than 10 characters), `INVALID_SCOPE1` / `INVALID_SCOPE2` (non-numeric or negative), `INVALID_REVENUE` (non-numeric, zero or negative when present; empty is accepted as NULL), `DUPLICATE_INVESTMENT_ID` (second occurrence in the same file), `WRONG_COLUMN_COUNT`.
-4. Upserts accepted rows into `stg_esg_emissions` keyed by `(as_of_month, investment_id)`, deletes staging rows for the same month whose `investment_id` is not among the accepted rows (the file replaces the month's snapshot), and inserts rejects into `esg_load_rejects`, all in one transaction with the batch row. A batch with status `F` changes nothing in staging.
+   If the file has no data rows (`EMPTY_FILE`) or every data row is rejected (`ALL_ROWS_REJECTED`), the batch is written with status `F` and that `failure_reason`, the rejects are written for diagnosis, staging is left untouched (the month keeps its last valid snapshot) and the loader exits 1. The feed cannot intentionally empty a month; that would be an operator action, not a file.
+4. Upserts accepted rows into `stg_esg_emissions` keyed by `(as_of_month, investment_id)`, deletes staging rows for the same month whose `investment_id` is not among the accepted rows (the file replaces the month's snapshot), and inserts rejects into `esg_load_rejects`, all in one transaction with the batch row. A batch with status `F` never changes staging.
 5. Unknown `investment_id`s (no matching position) are accepted; the provider's universe is wider than our holdings.
 
 ### 5.2 WACI procedure (RP-47)
 
-`backend/sql/esg/V001__compute_portfolio_waci.sql` is a parameterised script (`:as_of_month`, `:computed_at`, `:procedure_version`) executed by `backend/esg/waci.py::compute_waci(session, as_of_month)`. It contains two statements separated by `;` that the wrapper runs inside one transaction: statement 1 removes the month's metric rows for portfolios that no longer have an active position at month end (otherwise a portfolio whose last holding was closed would keep serving the WACI from an earlier run), statement 2 upserts the recomputed rows. Logic, all in SQL:
+`backend/sql/esg/V001__compute_portfolio_waci.sql` is a parameterised script (`:as_of_month`, `:computed_at`, `:procedure_version`) executed by `backend/esg/waci.py::compute_waci(session, as_of_month)`. It is a single statement driven from `portfolios`, so every portfolio receives a row for the month, including those with no active position (otherwise a portfolio whose last holding was closed would keep serving a stale value, and deleting its row would let an older month resurface as current). Logic, all in SQL:
 
 ```sql
--- Statement 1: drop metrics that no longer have an active-position result
-WITH month_end AS (
-  SELECT date(:as_of_month || '-01', '+1 month', '-1 day') AS d
-),
-latest_snapshot AS (
-  SELECT p.portfolio_id, p.investment_id, p.market_value, p.status,
-         ROW_NUMBER() OVER (PARTITION BY p.portfolio_id, p.investment_id ORDER BY p.date DESC) AS rn
-  FROM positions p, month_end
-  WHERE p.date <= month_end.d
-)
-DELETE FROM portfolio_esg_metrics
-WHERE as_of_month = :as_of_month
-  AND port_id NOT IN (SELECT portfolio_id FROM latest_snapshot
-                      WHERE rn = 1 AND status = 'A' AND market_value IS NOT NULL);
-
--- Statement 2: recompute and upsert
 WITH month_end AS (
   SELECT date(:as_of_month || '-01', '+1 month', '-1 day') AS d
 ),
@@ -315,15 +303,17 @@ joined AS (
   LEFT JOIN stg_esg_emissions e
     ON e.investment_id = a.investment_id AND e.as_of_month = :as_of_month
 ),
-totals AS (
-  SELECT portfolio_id,
-         SUM(market_value)                                   AS total_mv,
-         SUM(CASE WHEN covered = 1 THEN market_value END)    AS covered_mv,
-         COUNT(*)                                            AS positions_total,
-         SUM(covered)                                        AS positions_covered,
-         SUM(CASE WHEN covered = 1
-                  THEN 1.0 * market_value * (scope1_tco2e + scope2_tco2e) / revenue_musd END) AS weighted_sum
-  FROM joined GROUP BY portfolio_id
+totals AS (                              -- one row per portfolio, even with no active positions
+  SELECT pf.port_id                                            AS portfolio_id,
+         SUM(j.market_value)                                   AS total_mv,
+         SUM(CASE WHEN j.covered = 1 THEN j.market_value END)  AS covered_mv,
+         COUNT(j.investment_id)                                AS positions_total,
+         SUM(j.covered)                                        AS positions_covered,
+         SUM(CASE WHEN j.covered = 1
+                  THEN 1.0 * j.market_value * (j.scope1_tco2e + j.scope2_tco2e) / j.revenue_musd END) AS weighted_sum
+  FROM (SELECT DISTINCT port_id FROM portfolios) pf
+  LEFT JOIN joined j ON j.portfolio_id = pf.port_id
+  GROUP BY pf.port_id
 )
 INSERT INTO portfolio_esg_metrics (port_id, as_of_month, computed_value, coverage_pct, total_market_value,
                                    covered_market_value, positions_total, positions_covered,
@@ -342,7 +332,7 @@ ON CONFLICT (port_id, as_of_month) DO UPDATE SET
   procedure_version = excluded.procedure_version, computed_at = excluded.computed_at;
 ```
 
-The script above was dry-run against SQLite 3.37 with the section 5.3 data plus a holding sold mid-month, a zero-value portfolio, a whole-number-only portfolio (market value 100, emissions 1, revenue 2) and a portfolio whose only holding was closed between two runs; it produced `64.13748350485382 / 91.48037625947721` for `PF-12345`, excluded the sold holding, returned `NULL / 0` for the zero-value portfolio, `0.5` (not `0`) for the whole-number portfolio, deleted the closed portfolio's row on the second run, and otherwise left one row per portfolio.
+The script above was dry-run against SQLite 3.37 with the section 5.3 data plus a holding sold mid-month, a zero-value portfolio, a whole-number-only portfolio (market value 100, emissions 1, revenue 2) and a portfolio whose only holding was closed between two runs; it produced `64.13748350485382 / 91.48037625947721` for `PF-12345`, excluded the sold holding, returned `NULL / 0` for the zero-value portfolio, `0.5` (not `0`) for the whole-number portfolio, rewrote the closed portfolio's row to `positions_total 0 / NULL / 0` on the second run, and left exactly one row per portfolio.
 
 The `1.0 *` factors matter: SQLite stores whole-number `Numeric` values as integers, so `100 * 1 / 2 / 100` would evaluate to `0` under integer division. Forcing real arithmetic before the first division keeps each holding's contribution exact; on a decimal-capable database the factor is harmless.
 
@@ -352,7 +342,7 @@ Definitions:
 - A holding with no staging row or `revenue_musd IS NULL` is excluded from the numerator and from `covered_market_value` but stays in `total_market_value`, which is how it "counts against coverage".
 - A position whose latest snapshot on or before month end has `status <> 'A'` (sold or closed mid-month) is excluded from both totals.
 - `total_mv = 0` yields `coverage_pct = 0` and `computed_value = NULL` (no division). `covered_mv = 0` yields `computed_value = NULL` and `coverage_pct = 0`.
-- Re-running for the same month upserts the same `(port_id, as_of_month)` row, so the result set is identical and no duplicates appear. Portfolios with no active positions at month end get no row, and statement 1 deletes any row an earlier run wrote for them (the API then returns `hasMetric: false`). An override for that portfolio-month stays in `portfolio_esg_overrides` and remains visible in the audit trail; the GET endpoint reports `hasMetric: false` until a metric exists again.
+- Re-running for the same month upserts the same `(port_id, as_of_month)` row, so the result set is identical and no duplicates appear. Portfolios with no active positions at month end get the explicit no-position row (`positions_total 0`, `computed_value NULL`, `coverage_pct 0`), overwriting whatever an earlier run wrote for that month, and the API returns `hasMetric: false` for it rather than falling back to an older month. An override for that portfolio-month stays in `portfolio_esg_overrides` and remains visible in the audit trail.
 - Future script changes are new files (`V002__...`); `procedure_version` records which one produced each row. The wrapper picks the highest version present in `backend/sql/esg/`.
 
 ### 5.3 Worked numeric example
@@ -390,9 +380,9 @@ API: `computedValue 64.137484`, `coveragePct 91.48`, `source "computed"`. After 
 
 | Jira key | Story | Files that change | Tests that prove it |
 | --- | --- | --- | --- |
-| RP-46 | Ingest monthly ESG feed into staging | `backend/esg/__init__.py`, `backend/esg/loader.py`, `backend/esg/load_esg_feed.py`, `backend/models/esg.py` (`EsgLoadBatch`, `StgEsgEmission`, `EsgLoadReject`), `backend/models/__init__.py`, `backend/migrations/versions/<rev>_add_esg_tables.py`, `backend/inbound/esg/.gitkeep`, `backend/inbound/esg/2026-10/esg_emissions_2026-10.csv`, `backend/setup_database.sh` | `backend/tests/esg/test_loader.py`: happy path counts, duplicate file is a no-op, negative emissions rejected with reason, empty revenue loads as NULL, zero/negative revenue rejected, bad header fails the batch, duplicate `investment_id` in file rejected, corrected file that drops a previously accepted holding removes its staging row |
-| RP-47 | Compute WACI per portfolio in a database procedure | `backend/sql/esg/V001__compute_portfolio_waci.sql`, `backend/esg/waci.py`, `backend/models/esg.py` (`PortfolioEsgMetric`), migration | `backend/tests/esg/test_waci_procedure.py`: worked example equals 64.137484 / 91.48, missing revenue excluded and lowers coverage, zero total market value gives NULL value and 0 coverage without error, position sold mid-month (latest snapshot `status 'C'`) excluded, rerun leaves exactly one row with same values, portfolio with no emissions coverage gives NULL value, whole-number inputs (mv 100, emissions 1, revenue 2) give 0.5 not 0, rerun after the last holding closes deletes the stale metric row |
-| RP-48 | Expose carbon intensity through the portfolio API | `backend/routers/esg.py`, `backend/schemas/esg.py`, `backend/services/esg_service.py`, `backend/models/database.py` (`get_db`), `backend/app/main.py` | `backend/tests/esg/test_esg_api.py::TestGetEsg`: computed payload, override payload, `hasMetric false` payload, 404 unknown account |
+| RP-46 | Ingest monthly ESG feed into staging | `backend/esg/__init__.py`, `backend/esg/loader.py`, `backend/esg/load_esg_feed.py`, `backend/models/esg.py` (`EsgLoadBatch`, `StgEsgEmission`, `EsgLoadReject`), `backend/models/__init__.py`, `backend/migrations/versions/<rev>_add_esg_tables.py`, `backend/inbound/esg/.gitkeep`, `backend/inbound/esg/2026-10/esg_emissions_2026-10.csv`, `backend/setup_database.sh` | `backend/tests/esg/test_loader.py`: happy path counts, duplicate file is a no-op, negative emissions rejected with reason, empty revenue loads as NULL, zero/negative revenue rejected, bad header fails the batch, duplicate `investment_id` in file rejected, corrected file that drops a previously accepted holding removes its staging row, replaying the original file after a correction restores it as a new batch, all-rows-rejected and header-only files get status `F` and leave staging untouched |
+| RP-47 | Compute WACI per portfolio in a database procedure | `backend/sql/esg/V001__compute_portfolio_waci.sql`, `backend/esg/waci.py`, `backend/models/esg.py` (`PortfolioEsgMetric`), migration | `backend/tests/esg/test_waci_procedure.py`: worked example equals 64.137484 / 91.48, missing revenue excluded and lowers coverage, zero total market value gives NULL value and 0 coverage without error, position sold mid-month (latest snapshot `status 'C'`) excluded, rerun leaves exactly one row with same values, portfolio with no emissions coverage gives NULL value, whole-number inputs (mv 100, emissions 1, revenue 2) give 0.5 not 0, rerun after the last holding closes rewrites the row as the no-position state (`positions_total 0`, NULL value) |
+| RP-48 | Expose carbon intensity through the portfolio API | `backend/routers/esg.py`, `backend/schemas/esg.py`, `backend/services/esg_service.py`, `backend/models/database.py` (`get_db`), `backend/app/main.py` | `backend/tests/esg/test_esg_api.py::TestGetEsg`: computed payload, override payload, `hasMetric false` payload (never computed), `hasMetric false` when the latest month is a no-position row even though an older month has a value, 404 unknown account |
 | RP-49 | Show carbon intensity on the portfolio dashboard | `src/types/esg.ts`, `src/services/api.ts` (`fetchEsgMetric`), `src/components/EsgCarbonIntensity.tsx`, `src/components/PortfolioSummary.tsx`, `src/pages/PortfolioInquiry.tsx`, `src/components/index.ts` | `src/components/__tests__/PortfolioSummary.esg.test.tsx`: computed state shows value + unit + as-of month + coverage, override state shows indicator, empty state text, loading and error states |
 | RP-50 | Override with a reason | `backend/schemas/esg.py` (`EsgOverrideRequest`), `backend/routers/esg.py` (PUT/DELETE), `backend/services/esg_service.py`, `backend/models/esg.py` (`PortfolioEsgOverride`), `src/components/dialogs/EsgOverrideDialog.tsx`, `src/services/api.ts` (`putEsgOverride`, `clearEsgOverride`) | `backend/tests/esg/test_esg_api.py::TestOverride`: set, replace, clear, reason < 10 chars 422, negative value 422, 409 with no metric, 404 unknown account, applies only to current month; `src/components/__tests__/EsgOverrideDialog.test.tsx`: client-side validation messages, server 422 shown, submit calls API and closes |
 | RP-51 | Audit trail | `backend/models/esg.py` (`EsgOverrideAudit`), migration (triggers), `backend/services/esg_service.py`, `backend/routers/esg.py` (GET audit), `src/components/EsgAuditHistory.tsx`, `src/services/api.ts` (`fetchEsgAudit`) | `backend/tests/esg/test_esg_api.py::TestAudit`: SET then CLEAR yields two rows newest first with correct old/new values, UPDATE/DELETE on the table raises, empty list for account without history, 404 unknown account; `src/components/__tests__/EsgAuditHistory.test.tsx`: renders rows newest first, empty state |
@@ -406,7 +396,8 @@ Every commit message carries its Jira key (and "feature" per repo convention), f
 - Running `python -m esg.load_esg_feed --file inbound/esg/2026-10/esg_emissions_2026-10.csv` from `backend/` creates one `esg_load_batches` row with correct counts and populates `stg_esg_emissions` and `esg_load_rejects`.
 - Running the same command again writes nothing new (batch count, staging count and rejects count unchanged) and exits 0.
 - Rows with negative scope values, non-numeric fields, bad month or duplicate `investment_id` land in `esg_load_rejects` with the reason codes in 5.1; empty `revenue_musd` is accepted as NULL.
-- Loading a corrected file for an already loaded month that omits a previously accepted `investment_id` removes that holding's `stg_esg_emissions` row; the earlier batch row and its rejects remain.
+- Loading a corrected file for an already loaded month that omits a previously accepted `investment_id` removes that holding's `stg_esg_emissions` row; the earlier batch row and its rejects remain. Reloading the original file afterwards creates a new batch and restores the holding.
+- A file with the right header but no data rows, or with every row rejected, writes a batch with status `F` (`EMPTY_FILE` / `ALL_ROWS_REJECTED`), writes its rejects, leaves `stg_esg_emissions` unchanged and exits 1.
 - `--all` scans `inbound/esg/*/` and loads every file not yet loaded.
 
 **RP-47 Procedure**
@@ -416,13 +407,14 @@ Every commit message carries its Jira key (and "feature" per repo convention), f
 - A holding sold before month end (latest snapshot `status 'C'`) is excluded from both numerator and denominator.
 - Rerunning for the same month leaves the row count unchanged and only `computed_at` differs.
 - A portfolio with only whole-number inputs (market value 100, emissions 1, revenue 2) gets `computed_value 0.5`, not `0`.
-- Rerunning after a portfolio's last active holding has a closed snapshot dated in the month deletes its `portfolio_esg_metrics` row, so `GET .../esg` returns `hasMetric: false`.
+- Rerunning after a portfolio's last active holding has a closed snapshot dated in the month rewrites its `portfolio_esg_metrics` row as the no-position state, and `GET .../esg` returns `hasMetric: false` even when an earlier month has a value.
 - The calculation lives entirely in `backend/sql/esg/V001__compute_portfolio_waci.sql`; `waci.py` only binds parameters, executes and commits.
 
 **RP-48 API**
 - `GET /api/portfolio/1234567890/esg` returns the 4.1 payload with `source` in `computed | override | none`.
 - Unknown account returns 404 with `{"detail": "Account not found"}`.
 - `effectiveValue` equals `override.value` when an override exists, otherwise `computedValue`.
+- When the latest month's row has `positions_total 0`, the response is `hasMetric: false` with that month's `asOfMonth`; an older month's value is never returned as current.
 
 **RP-49 Dashboard**
 - `PortfolioSummary` shows a "Carbon intensity (WACI)" tile with the effective value formatted to two decimals, the unit `tCO2e / $M revenue`, "As of <Month YYYY>" and "Coverage <n>%".
@@ -451,8 +443,8 @@ Every commit message carries its Jira key (and "feature" per repo convention), f
 
 Backend (pytest, run from `backend/` with the Poetry venv):
 - `tests/conftest.py`: `engine` fixture using `sqlite://` in-memory with `StaticPool`, `Base.metadata.create_all` plus the audit triggers (applied from the same helper the migration uses), `session` fixture, `client` fixture overriding `get_db`, and data builders `make_portfolio(port_id, account_no)` and `make_position(port_id, investment_id, date, market_value, status)`.
-- `tests/esg/test_loader.py`: writes CSV fixtures to `tmp_path` mimicking `esg/<month>/` and asserts batch/staging/reject counts and reason codes; duplicate-file test loads twice and asserts counts unchanged; header test asserts status `F`; corrected-file test loads a second file for the same month without one holding and asserts that holding's staging row is gone while batch and reject rows are retained.
-- `tests/esg/test_waci_procedure.py`: seeds the worked example, runs `compute_waci`, asserts `computed_value == Decimal('64.137484')` and `coverage_pct == Decimal('91.48')` (rounded), then the edge cases listed in section 6, including the whole-number regression (asserts `0.5`) and the stale-metric case (compute, add a closed snapshot for the last holding, recompute, assert no row).
+- `tests/esg/test_loader.py`: writes CSV fixtures to `tmp_path` mimicking `esg/<month>/` and asserts batch/staging/reject counts and reason codes; duplicate-file test loads twice and asserts counts unchanged; header test asserts status `F`; corrected-file test loads a second file for the same month without one holding and asserts that holding's staging row is gone while batch and reject rows are retained, then reloads the first file and asserts the holding is back under a third batch; all-rows-rejected and header-only tests assert status `F`, the `failure_reason`, and unchanged staging.
+- `tests/esg/test_waci_procedure.py`: seeds the worked example, runs `compute_waci`, asserts `computed_value == Decimal('64.137484')` and `coverage_pct == Decimal('91.48')` (rounded), then the edge cases listed in section 6, including the whole-number regression (asserts `0.5`) and the stale-metric case (compute September and October, add a closed snapshot for the last holding in October, recompute October, assert the October row has `positions_total 0` and NULL value and that GET returns `hasMetric: false`, not September).
 - `tests/esg/test_esg_api.py`: `TestClient` tests for GET esg (three states + 404), PUT/DELETE override (validation matrix, 409, audit side effects, current-month rule when two months exist), GET audit (ordering, limit, 404), and a direct `UPDATE`/`DELETE` on `esg_override_audit` expecting an `IntegrityError`/`OperationalError` from the trigger.
 
 Frontend (vitest + jsdom + Testing Library v12 for React 16):
