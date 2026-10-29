@@ -26,6 +26,14 @@ def main(argv=None) -> int:
             print(f"Batch {result.batch_id}: {result.loaded_rows} rows staged, {result.rejected_rows} rejected.")
             for reject in result.rejects:
                 print(f"  reject row {reject['row_no']}: {reject['reason']}")
+            if result.rejected_rows:
+                print(
+                    f"WARNING: {result.rejected_rows} row(s) rejected in batch {result.batch_id}; "
+                    "holdings without accepted emissions data reduce coverage_pct.",
+                    file=sys.stderr,
+                )
+            if result.loaded_rows == 0:
+                print(f"WARNING: no rows were staged from {result.file_name}.", file=sys.stderr)
         if not args.no_compute:
             for month in result.as_of_months:
                 computed = compute_waci(db, month)

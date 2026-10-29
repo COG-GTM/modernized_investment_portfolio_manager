@@ -113,7 +113,7 @@ def test_corrected_resend_removes_investments_no_longer_in_file(db, tmp_path):
 
 
 def test_rerun_of_mixed_month_file_reports_every_staged_month(db, tmp_path):
-    feed = write_feed(tmp_path, ["2026-09,AAPL,10,10,5", "2026-10,AAPL,10,10,5"])
+    feed = write_feed(tmp_path, ["2026-09,AAPL,10,10,5", "2026-10,AAPL,10,10,5"], name="mixed_months.csv")
     first = load_esg_feed(db, feed)
     assert first.as_of_months == ["2026-09", "2026-10"]
 
