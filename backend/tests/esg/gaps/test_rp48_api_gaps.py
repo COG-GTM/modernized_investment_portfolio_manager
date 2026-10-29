@@ -34,13 +34,19 @@ def test_override_survives_recompute_and_computed_value_is_refreshed(client, see
     assert body["computed_value"] == pytest.approx(27787.5 * 20 / 125498.5)
 
 
-def test_metric_for_earlier_month_is_not_hidden_by_later_month_without_positions(db, client, tmp_path):
-    """RP-47 / RP-48: a portfolio that had positions only in October must still report October when the
-    procedure is also run for November; the API picks the greatest as_of_month."""
+def test_latest_month_with_staged_data_becomes_the_current_metric(db, client, tmp_path):
+    """RP-47 / RP-48: when the procedure has run for October and November and both months have staged data,
+    the API reports November (the greatest as_of_month) with November's value; the October snapshot carries
+    forward as the holding's latest snapshot on or before the November month end."""
     add_portfolio(db, port_id="PF-GAP01", account_no="2222222222")
     add_position(db, "AAA", "1000", port_id="PF-GAP01")
-    load_esg_feed(db, write_feed(tmp_path, ["2026-10,AAA,100,0,10", "2026-11,AAA,100,0,10"]))
+    load_esg_feed(db, write_feed(tmp_path, ["2026-10,AAA,100,0,10", "2026-11,AAA,200,0,10"]))
     compute_waci(db, AS_OF)
-    body = client.get("/api/portfolio/2222222222/esg").json()
-    assert body["as_of_month"] == AS_OF
-    assert body["computed_value"] == pytest.approx(10.0)
+    october = client.get("/api/portfolio/2222222222/esg").json()
+    assert october["as_of_month"] == AS_OF
+    assert october["computed_value"] == pytest.approx(10.0)
+
+    compute_waci(db, "2026-11")
+    november = client.get("/api/portfolio/2222222222/esg").json()
+    assert november["as_of_month"] == "2026-11"
+    assert november["computed_value"] == pytest.approx(20.0)
