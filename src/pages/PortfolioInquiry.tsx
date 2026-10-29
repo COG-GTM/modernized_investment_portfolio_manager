@@ -1,17 +1,69 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ROUTES } from '../types/routes';
-import { Container, PageHeader, Card, Button, PositionCard, PortfolioSummary, Alert } from '../components';
+import { Container, PageHeader, Card, Button, PositionCard, PortfolioSummary, Alert, EsgOverrideModal, EsgAuditHistory } from '../components';
+import type { OverrideMode } from '../components/EsgOverrideModal';
+import { useEsgMetric } from '../hooks/useEsgMetric';
+import type { EsgAuditEntry } from '../types/esg';
 import { AccountInput } from '../components/AccountInput';
 import { accountFormSchema, type AccountFormData, type PortfolioSummary as PortfolioSummaryType } from '../types/account';
-import { fetchPortfolio, ApiError } from '../services/api';
+import { fetchPortfolio, ApiError, putEsgOverride, deleteEsgOverride, fetchEsgAudit } from '../services/api';
 
 export default function PortfolioInquiry() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [portfolioData, setPortfolioData] = useState<PortfolioSummaryType | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const esg = useEsgMetric(portfolioData?.accountNumber ?? null);
+  const [overrideModal, setOverrideModal] = useState<{ open: boolean; mode: OverrideMode }>({ open: false, mode: 'override' });
+  const [overrideError, setOverrideError] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyEntries, setHistoryEntries] = useState<EsgAuditEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
+  const openOverride = (mode: OverrideMode) => {
+    setOverrideError(null);
+    setOverrideModal({ open: true, mode });
+  };
+
+  const closeOverride = useCallback(() => {
+    setOverrideModal((state) => ({ ...state, open: false }));
+    setOverrideError(null);
+  }, []);
+
+  const submitOverride = async ({ value, reason }: { value: number | null; reason: string }) => {
+    if (!portfolioData) return;
+    setOverrideError(null);
+    try {
+      const updated = overrideModal.mode === 'override' && value !== null
+        ? await putEsgOverride(portfolioData.accountNumber, value, reason)
+        : await deleteEsgOverride(portfolioData.accountNumber, reason);
+      esg.setMetric(updated);
+      setOverrideModal((state) => ({ ...state, open: false }));
+    } catch (err) {
+      setOverrideError(err instanceof ApiError ? err.message : 'Unable to save the override. Please try again.');
+    }
+  };
+
+  const openHistory = async () => {
+    if (!portfolioData) return;
+    setHistoryOpen(true);
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const response = await fetchEsgAudit(portfolioData.accountNumber);
+      setHistoryEntries(response.entries);
+    } catch (err) {
+      setHistoryError(err instanceof ApiError ? err.message : 'Unable to load override history.');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const closeHistory = useCallback(() => setHistoryOpen(false), []);
 
   const methods = useForm<AccountFormData>({
     resolver: zodResolver(accountFormSchema),
@@ -98,6 +150,30 @@ export default function PortfolioInquiry() {
                   lastUpdated: portfolioData.lastUpdated,
                 }}
                 onNewSearch={resetForm}
+                esg={{
+                  metric: esg.metric,
+                  loading: esg.loading,
+                  error: esg.error,
+                  onOverride: () => openOverride('override'),
+                  onClearOverride: () => openOverride('clear'),
+                  onViewHistory: openHistory,
+                }}
+              />
+
+              <EsgOverrideModal
+                isOpen={overrideModal.open}
+                mode={overrideModal.mode}
+                metric={esg.metric}
+                onSubmit={submitOverride}
+                onCancel={closeOverride}
+                serverError={overrideError}
+              />
+              <EsgAuditHistory
+                isOpen={historyOpen}
+                entries={historyEntries}
+                loading={historyLoading}
+                error={historyError}
+                onClose={closeHistory}
               />
 
               <div className="space-y-4 animate-fade-in" style={{ animationDelay: '100ms' }}>
