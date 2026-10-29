@@ -17,10 +17,11 @@ export interface PortfolioHolding {
   symbol: string;
   name: string;
   shares: number;
-  currentPrice: number;
-  marketValue: number;
-  gainLoss: number;
-  gainLossPercent: number;
+  costBasis: number;
+  currentPrice: number | null;
+  marketValue: number | null;
+  gainLoss: number | null;
+  gainLossPercent: number | null;
 }
 
 export interface PortfolioSummary {

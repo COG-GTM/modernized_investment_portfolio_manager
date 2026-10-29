@@ -79,6 +79,7 @@ def test_summary_totals_skip_unpriced_holdings(db):
     unpriced = next(h for h in summary.holdings if h.symbol == "PVTCRD2031")
     assert unpriced.marketValue is None
     assert unpriced.gainLoss is None
+    assert unpriced.costBasis == pytest.approx(500000.00)
 
 
 def test_get_portfolio_returns_200_with_unpriced_holding(client):
@@ -88,4 +89,7 @@ def test_get_portfolio_returns_200_with_unpriced_holding(client):
     body = response.json()
     assert body["accountNumber"] == "2345678901"
     assert len(body["holdings"]) == 2
+    unpriced = next(h for h in body["holdings"] if h["symbol"] == "PVTCRD2031")
+    assert unpriced["marketValue"] is None
+    assert unpriced["costBasis"] == pytest.approx(500000.00)
     assert body["totalValue"] == pytest.approx(75100.00)
