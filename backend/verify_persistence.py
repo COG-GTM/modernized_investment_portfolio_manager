@@ -37,8 +37,9 @@ def verify_database_persistence():
         total_market_value = 0
         for position in positions:
             print(f"   - {position[1]}: {position[2]} shares")
-            print(f"     Cost Basis: ${position[3]}, Market Value: ${position[4]}")
-            total_market_value += float(position[4])
+            print(f"     Cost Basis: ${position[3]}, Market Value: ${position[4] if position[4] is not None else 'unpriced'}")
+            if position[4] is not None:
+                total_market_value += float(position[4])
         print(f"   Total Market Value: ${total_market_value}")
         
         cursor.execute("SELECT date, time, portfolio_id, investment_id, type, quantity, price, amount FROM transactions ORDER BY date, time;")

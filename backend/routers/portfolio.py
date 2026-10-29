@@ -42,7 +42,19 @@ def _latest_active_positions(db: Session, portfolio: Portfolio) -> List[Position
 def _build_holding(position: Position) -> PortfolioHolding:
     quantity = float(position.quantity or 0)
     cost_basis = float(position.cost_basis or 0)
-    market_value = float(position.market_value or 0)
+
+    if position.market_value is None:
+        return PortfolioHolding(
+            symbol=position.investment_id,
+            name=SECURITY_NAMES.get(position.investment_id, position.investment_id),
+            shares=int(quantity),
+            currentPrice=None,
+            marketValue=None,
+            gainLoss=None,
+            gainLossPercent=None,
+        )
+
+    market_value = float(position.market_value)
     gain_loss = market_value - cost_basis
     gain_loss_percent = (gain_loss / cost_basis * 100) if cost_basis else 0.0
     current_price = market_value / quantity if quantity else 0.0

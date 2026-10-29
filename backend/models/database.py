@@ -56,7 +56,7 @@ class Portfolio(Base):
         total = Decimal('0.00')
         for position in self.positions:
             if position.status == 'A':
-                total += position.market_value or Decimal('0.00')
+                total += position.market_value
         
         total += self.cash_balance or Decimal('0.00')
         return total
@@ -147,7 +147,7 @@ class Position(Base):
             "investment_id": self.investment_id,
             "quantity": float(self.quantity) if self.quantity else 0.0,
             "cost_basis": float(self.cost_basis) if self.cost_basis else 0.0,
-            "market_value": float(self.market_value) if self.market_value else 0.0,
+            "market_value": float(self.market_value) if self.market_value is not None else None,
             "currency": self.currency,
             "status": self.status,
             "gain_loss": float(gain_loss_data["gain_loss"]),

@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 
 
@@ -7,10 +7,10 @@ class PortfolioHolding(BaseModel):
     symbol: str
     name: str
     shares: int
-    currentPrice: float
-    marketValue: float
-    gainLoss: float
-    gainLossPercent: float
+    currentPrice: Optional[float]
+    marketValue: Optional[float]
+    gainLoss: Optional[float]
+    gainLossPercent: Optional[float]
 
 
 class PortfolioSummary(BaseModel):

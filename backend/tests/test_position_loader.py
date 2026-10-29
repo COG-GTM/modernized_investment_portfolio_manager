@@ -78,7 +78,7 @@ def test_unknown_portfolio_is_skipped_with_error(db, tmp_path):
     assert "unknown portfolio" in result.errors[0]
 
 
-def test_blank_market_value_defaults_to_zero(db, tmp_path):
+def test_blank_market_value_is_stored_as_unpriced(db, tmp_path):
     path = write_file(
         tmp_path,
         "2026-10-28,1111111111,PF-00001,PVTCRD2031,500000.0000,500000.00,,USD,A\n",
@@ -87,7 +87,8 @@ def test_blank_market_value_defaults_to_zero(db, tmp_path):
     load_position_file(path, db)
 
     position = db.get(Position, ("PF-00001", date(2026, 10, 28), "PVTCRD2031"))
-    assert position.market_value == Decimal("0.00")
+    assert position.market_value is None
+    assert position.cost_basis == Decimal("500000.00")
 
 
 def test_find_latest_position_file_picks_newest_folder(tmp_path):

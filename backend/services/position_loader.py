@@ -5,6 +5,10 @@ The custodian drops one CSV per business day under inbound/positions/<as_of_date
 Each row is a snapshot of a single holding for an account on that date. Rows are
 upserted on the positions primary key (portfolio_id, date, investment_id) so a file
 can be replayed without creating duplicates.
+
+Holdings the custodian has not priced yet arrive with an empty market_value. They
+are stored as NULL rather than 0.00 so pricing gaps are visible downstream instead
+of being masked as a total loss.
 """
 import csv
 from dataclasses import dataclass, field
@@ -51,10 +55,10 @@ def find_latest_position_file(inbound_root: Path = DEFAULT_INBOUND_ROOT) -> Opti
     return files[-1] if files else None
 
 
-def _parse_decimal(raw: str, default: Decimal = Decimal("0.00")) -> Decimal:
+def _parse_decimal(raw: str) -> Optional[Decimal]:
     raw = (raw or "").strip()
     if not raw:
-        return default
+        return None
     return Decimal(raw)
 
 
@@ -71,8 +75,8 @@ def load_position_file(path: Path, db: Session, user: str = "NIGHTLY") -> LoadRe
         for line_no, row in enumerate(reader, start=2):
             try:
                 as_of = datetime.strptime(row["as_of_date"].strip(), "%Y-%m-%d").date()
-                quantity = _parse_decimal(row["quantity"])
-                cost_basis = _parse_decimal(row["cost_basis"])
+                quantity = _parse_decimal(row["quantity"]) or Decimal("0.0000")
+                cost_basis = _parse_decimal(row["cost_basis"]) or Decimal("0.00")
                 market_value = _parse_decimal(row["market_value"])
             except (ValueError, InvalidOperation) as exc:
                 result.errors.append(f"line {line_no}: {exc}")
@@ -108,7 +112,7 @@ def _upsert_position(
     row: dict,
     quantity: Decimal,
     cost_basis: Decimal,
-    market_value: Decimal,
+    market_value: Optional[Decimal],
     user: str,
 ) -> Position:
     investment_id = row["investment_id"].strip()
