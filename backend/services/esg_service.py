@@ -8,7 +8,7 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from pathlib import Path
 from typing import List, Optional
 
@@ -28,7 +28,7 @@ FEED_FILE_MONTH_RE = re.compile(r"esg_emissions_(\d{4}-\d{2})")
 DECIMAL_LITERAL_RE = re.compile(r"^[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][+-]?[0-9]+)?$", re.ASCII)
 # stg_esg_emissions stores Numeric(18,4): 14 integer digits, 4 decimals.
 NUMERIC_MAX_EXCLUSIVE = Decimal("1e14")
-NUMERIC_SMALLEST_NONZERO = Decimal("0.0001")
+NUMERIC_SCALE = Decimal("0.0001")
 MIN_REASON_LENGTH = 10
 
 
@@ -79,10 +79,16 @@ def _parse_decimal(raw: Optional[str], column: str, errors: List[str], *, requir
     if parsed.is_nan() or parsed.is_infinite():
         errors.append(f"{column} is not a finite number")
         return None
-    if abs(parsed) >= NUMERIC_MAX_EXCLUSIVE:
+    # Check the value as it will be stored, not as written: round to the column scale first.
+    # adjusted() reads the exponent without arithmetic, so "1e1000000" cannot raise decimal.Overflow.
+    if parsed.adjusted() >= 14:
         errors.append(f"{column} exceeds the Numeric(18,4) range: {value!r}")
         return None
-    if parsed != 0 and abs(parsed) < NUMERIC_SMALLEST_NONZERO:
+    stored = parsed.quantize(NUMERIC_SCALE, rounding=ROUND_HALF_UP) if parsed.adjusted() >= -6 else Decimal("0.0000")
+    if abs(stored) >= NUMERIC_MAX_EXCLUSIVE:
+        errors.append(f"{column} exceeds the Numeric(18,4) range after rounding to 4 decimals: {value!r}")
+        return None
+    if parsed != 0 and stored == 0:
         errors.append(f"{column} is below the Numeric(18,4) precision and would be stored as 0: {value!r}")
         return None
     if minimum is not None and parsed < minimum:
@@ -91,7 +97,7 @@ def _parse_decimal(raw: Optional[str], column: str, errors: List[str], *, requir
     if positive and parsed <= 0:
         errors.append(f"{column} must be positive, got {parsed}")
         return None
-    return parsed
+    return stored
 
 
 def validate_feed_row(row: dict, expected_month: Optional[str] = None) -> tuple[Optional[dict], List[str]]:

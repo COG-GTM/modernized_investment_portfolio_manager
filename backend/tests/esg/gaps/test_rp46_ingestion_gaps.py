@@ -160,6 +160,27 @@ def test_gap12_file_without_month_in_name_still_loads_any_valid_month(db, tmp_pa
     assert result.as_of_months == ["2026-09", "2026-10"]
 
 
+def test_gap21_numeric_checks_apply_to_the_stored_rounded_value(db, tmp_path):
+    """RP-46 / RP-52: range and precision checks must mirror Numeric(18,4) storage. 1e1000000 used to raise
+    decimal.Overflow and abort the whole batch; 99999999999999.99995 passed validation but rounds past the
+    column range; 0.00009 was rejected although it is stored as 0.0001."""
+    result = load_esg_feed(db, write_feed(tmp_path, [
+        "2026-10,AAPL,1e1000000,2,3",
+        "2026-10,MSFT,-1e-1000000,2,3",
+        "2026-10,GOOGL,99999999999999.99995,2,3",
+        "2026-10,TSLA,1,2,0.00009",
+        "2026-10,NVDA,1,2,0.00004",
+    ]))
+    assert (result.loaded_rows, result.rejected_rows) == (1, 4)
+    reasons = _reasons(db)
+    assert "exceeds the Numeric(18,4) range" in reasons[0]
+    assert "below the Numeric(18,4) precision" in reasons[1]
+    assert "after rounding to 4 decimals" in reasons[2]
+    assert "below the Numeric(18,4) precision" in reasons[3]
+    staged = db.query(StgEsgEmissions).one()
+    assert staged.investment_id == "TSLA" and float(staged.revenue_musd) == 0.0001
+
+
 # --------------------------------------------------------------------------- re-runs / atomicity
 
 
