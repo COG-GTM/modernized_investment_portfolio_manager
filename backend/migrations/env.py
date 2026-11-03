@@ -18,6 +18,7 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 from models.database import Base
 from models.transactions import Transaction
+from models.esg import PortfolioEsgMetric, PortfolioEsgOverride
 
 target_metadata = Base.metadata
 

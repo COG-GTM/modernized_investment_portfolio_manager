@@ -1,7 +1,12 @@
-from fastapi import FastAPI
+import math
+
+from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import psycopg
-from routers import portfolio, accounts
+from routers import portfolio, accounts, esg
 
 app = FastAPI(
     title="Portfolio Management API",
@@ -20,6 +25,23 @@ app.add_middleware(
 
 app.include_router(portfolio.router)
 app.include_router(accounts.router)
+app.include_router(esg.router)
+
+
+def _json_safe(value):
+    if isinstance(value, float) and not math.isfinite(value):
+        return str(value)
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    return value
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    # NaN/Infinity echoed back in the default 422 body cannot be JSON-encoded
+    return JSONResponse(status_code=422, content={"detail": _json_safe(jsonable_encoder(exc.errors()))})
 
 @app.get("/healthz")
 async def healthz():
