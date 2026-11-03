@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import Button from '../Button';
 import type { EsgMetric, EsgOverrideErrors, EsgOverrideField } from '../../types/esg';
 import { ApiError, overrideEsgMetric } from '../../services/api';
-import { REASON_MIN_LENGTH, formatCarbonIntensity, validateEsgOverride } from '../../utils/esg';
+import { REASON_MIN_LENGTH, formatCarbonIntensity, reasonLength, validateEsgOverride } from '../../utils/esg';
 import { trapFocus } from '../../utils/accessibility';
 
 interface EsgOverrideDialogProps {
@@ -98,7 +98,7 @@ export default function EsgOverrideDialog({ isOpen, esg, onClose, onSaved }: Esg
       aria-labelledby="esg-override-title"
       aria-describedby="esg-override-description"
     >
-      <div ref={dialogRef} className="w-full max-w-md mx-4 rounded-lg border bg-card p-6 shadow-lg">
+      <div ref={dialogRef} className="w-full max-w-[28rem] mx-4 rounded-lg border bg-card p-6 shadow-lg">
         <h2 id="esg-override-title" className="text-lg font-semibold">
           Override carbon intensity
         </h2>
@@ -153,7 +153,7 @@ export default function EsgOverrideDialog({ isOpen, esg, onClose, onSaved }: Esg
               className={`${inputClasses} ${reasonError ? 'border-red-500' : 'border-border'}`}
             />
             <p id="esg-override-reason-hint" className="text-xs text-muted-foreground">
-              Required, at least {REASON_MIN_LENGTH} characters ({reason.trim().length}/{REASON_MIN_LENGTH}).
+              Required, at least {REASON_MIN_LENGTH} characters ({reasonLength(reason)}/{REASON_MIN_LENGTH}).
             </p>
             {reasonError && (
               <p id="esg-override-reason-error" className="text-sm text-red-600">

@@ -2,6 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional, Tuple
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from models.database import Portfolio
@@ -110,15 +111,26 @@ def set_override(db: Session, account_number: str, value: float, reason: str, ch
     if metric is None or metric.positions_total == 0:
         raise EsgStateError(NO_METRIC_MESSAGE)
 
-    now = datetime.now().replace(microsecond=0)
+    def apply(row: PortfolioEsgOverride) -> None:
+        row.override_value = Decimal(str(value))
+        row.reason = reason
+        row.overridden_by = changed_by
+        row.overridden_at = datetime.now().replace(microsecond=0)
+
     if override is None:
         override = PortfolioEsgOverride(port_id=portfolio.port_id, as_of_month=metric.as_of_month)
         db.add(override)
-    override.override_value = Decimal(str(value))
-    override.reason = reason
-    override.overridden_by = changed_by
-    override.overridden_at = now
-    db.commit()
+    apply(override)
+    try:
+        db.commit()
+    except IntegrityError:
+        # A concurrent request inserted the first override for this month; replace it instead.
+        db.rollback()
+        override = _override_for(db, portfolio.port_id, metric.as_of_month)
+        if override is None:
+            raise
+        apply(override)
+        db.commit()
     db.refresh(override)
     return build_response(portfolio, metric, override)
 

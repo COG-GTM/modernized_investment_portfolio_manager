@@ -3,6 +3,11 @@ import type { EsgOverrideErrors } from '../types/esg';
 export const REASON_MIN_LENGTH = 10;
 export const REASON_MAX_LENGTH = 1000;
 
+// Count code points, not UTF-16 units, to match the server's len(str.strip()).
+export function reasonLength(reason: string): number {
+  return Array.from(reason.trim()).length;
+}
+
 export function validateEsgOverride(value: string, reason: string): EsgOverrideErrors {
   const errors: EsgOverrideErrors = {};
 
@@ -17,7 +22,7 @@ export function validateEsgOverride(value: string, reason: string): EsgOverrideE
     }
   }
 
-  const trimmedLength = reason.trim().length;
+  const trimmedLength = reasonLength(reason);
   if (trimmedLength < REASON_MIN_LENGTH) {
     errors.reason = `Reason must be at least ${REASON_MIN_LENGTH} characters`;
   } else if (trimmedLength > REASON_MAX_LENGTH) {

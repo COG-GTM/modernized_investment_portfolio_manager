@@ -81,6 +81,32 @@ class TestSetOverride:
         assert session.query(PortfolioEsgOverride).one().as_of_month == "2026-10"
 
 
+    def test_concurrent_first_override_replaces_instead_of_500(self, client, seeded, monkeypatch):
+        from datetime import datetime
+        from decimal import Decimal
+        from services import esg_service
+
+        seeded.add(PortfolioEsgOverride(port_id="PF-12345", as_of_month="2026-10", override_value=Decimal("10"),
+                                        reason="Inserted by a concurrent request.", overridden_by="OTHER",
+                                        overridden_at=datetime(2026, 10, 30)))
+        seeded.commit()
+        real_override_for = esg_service._override_for
+        calls = {"n": 0}
+
+        def stale_then_real(db, port_id, as_of_month):
+            calls["n"] += 1
+            return None if calls["n"] == 1 else real_override_for(db, port_id, as_of_month)
+
+        monkeypatch.setattr(esg_service, "_override_for", stale_then_real)
+
+        response = client.put(URL, json={"value": 70.0, "reason": REASON, "changedBy": "PMJONES"})
+
+        assert response.status_code == 200
+        assert response.json()["override"]["overriddenBy"] == "PMJONES"
+        seeded.expire_all()
+        assert seeded.query(PortfolioEsgOverride).one().override_value == Decimal("70.000000")
+
+
 class TestValidation:
     @pytest.mark.parametrize("reason", ["", "too short", "         x", "  123456789  "])
     def test_reason_shorter_than_10_characters_is_422(self, client, seeded, reason):

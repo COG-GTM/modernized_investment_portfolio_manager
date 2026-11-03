@@ -25,6 +25,11 @@ describe('validateEsgOverride', () => {
     expect(validateEsgOverride('1', '').reason).toBe('Reason must be at least 10 characters');
     expect(validateEsgOverride('1', '   123456789   ').reason).toBe('Reason must be at least 10 characters');
   });
+
+  it('counts emoji as one character each, like the server', () => {
+    expect(validateEsgOverride('1', '🌍🌍🌍🌍🌍').reason).toBe('Reason must be at least 10 characters');
+    expect(validateEsgOverride('1', '🌍🌍🌍🌍🌍🌍🌍🌍🌍🌍')).toEqual({});
+  });
 });
 
 describe('formatCarbonIntensity', () => {
