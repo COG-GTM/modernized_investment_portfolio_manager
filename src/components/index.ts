@@ -9,6 +9,8 @@ export { default as PageHeader } from './PageHeader';
 export { AccountInput } from './AccountInput';
 export { default as PositionCard } from './PositionCard';
 export { default as PortfolioSummary } from './PortfolioSummary';
+export { default as CarbonIntensityTile } from './esg/CarbonIntensityTile';
+export { default as EsgOverrideDialog } from './esg/EsgOverrideDialog';
 
 export { Button as UIButton } from './ui/button';
 export { Input } from './ui/input';

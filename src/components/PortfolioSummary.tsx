@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import Card from './Card';
 import { Portfolio } from '../types';
 import { formatCurrency, formatPercentage, formatLastUpdated, getGainLossColorClass } from '../utils/format';
@@ -5,10 +6,11 @@ import { formatCurrency, formatPercentage, formatLastUpdated, getGainLossColorCl
 interface PortfolioSummaryProps {
   portfolio: Portfolio;
   onNewSearch?: () => void;
+  carbonIntensity?: ReactNode;
   className?: string;
 }
 
-export default function PortfolioSummary({ portfolio, onNewSearch, className = '' }: PortfolioSummaryProps) {
+export default function PortfolioSummary({ portfolio, onNewSearch, carbonIntensity, className = '' }: PortfolioSummaryProps) {
   const gainLossColorClass = getGainLossColorClass(portfolio.totalGainLoss);
 
   return (
@@ -51,6 +53,8 @@ export default function PortfolioSummary({ portfolio, onNewSearch, className = '
             </p>
           </div>
         </div>
+
+        {carbonIntensity}
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
           <div>

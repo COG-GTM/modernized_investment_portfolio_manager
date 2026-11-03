@@ -12,6 +12,10 @@ psycopg = {extras = ["binary"], version = "^3.2.9"}
 sqlalchemy = "^2.0.43"
 alembic = "^1.13.0"
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.0"
+httpx = "^0.28.1"
+
 
 [build-system]
 requires = ["poetry-core"]

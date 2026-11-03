@@ -1,17 +1,46 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ROUTES } from '../types/routes';
-import { Container, PageHeader, Card, Button, PositionCard, PortfolioSummary, Alert } from '../components';
+import { Container, PageHeader, Card, Button, PositionCard, PortfolioSummary, Alert, CarbonIntensityTile, EsgOverrideDialog } from '../components';
 import { AccountInput } from '../components/AccountInput';
 import { accountFormSchema, type AccountFormData, type PortfolioSummary as PortfolioSummaryType } from '../types/account';
-import { fetchPortfolio, ApiError } from '../services/api';
+import { fetchPortfolio, fetchEsgMetric, ApiError } from '../services/api';
+import type { EsgMetric } from '../types/esg';
 
 export default function PortfolioInquiry() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [portfolioData, setPortfolioData] = useState<PortfolioSummaryType | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [esg, setEsg] = useState<EsgMetric | null>(null);
+  const [esgLoading, setEsgLoading] = useState(false);
+  const [esgError, setEsgError] = useState<string | null>(null);
+  const [isOverrideOpen, setIsOverrideOpen] = useState(false);
+
+  const loadEsg = async (accountNumber: string) => {
+    setEsgLoading(true);
+    setEsgError(null);
+    try {
+      setEsg(await fetchEsgMetric(accountNumber));
+    } catch (err) {
+      setEsg(null);
+      setEsgError(
+        err instanceof ApiError && err.status === 404
+          ? 'Carbon intensity is not available for this account.'
+          : 'Unable to load carbon intensity.'
+      );
+    } finally {
+      setEsgLoading(false);
+    }
+  };
+
+  const closeOverride = useCallback(() => setIsOverrideOpen(false), []);
+
+  const handleOverrideSaved = useCallback((updated: EsgMetric) => {
+    setEsg(updated);
+    setIsOverrideOpen(false);
+  }, []);
 
   const methods = useForm<AccountFormData>({
     resolver: zodResolver(accountFormSchema),
@@ -30,6 +59,7 @@ export default function PortfolioInquiry() {
     try {
       const portfolio = await fetchPortfolio(data.accountNumber);
       setPortfolioData(portfolio);
+      loadEsg(data.accountNumber);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -50,6 +80,9 @@ export default function PortfolioInquiry() {
   const resetForm = () => {
     setPortfolioData(null);
     setError(null);
+    setEsg(null);
+    setEsgError(null);
+    setIsOverrideOpen(false);
     methods.reset();
   };
 
@@ -98,6 +131,14 @@ export default function PortfolioInquiry() {
                   lastUpdated: portfolioData.lastUpdated,
                 }}
                 onNewSearch={resetForm}
+                carbonIntensity={
+                  <CarbonIntensityTile
+                    esg={esg}
+                    loading={esgLoading}
+                    error={esgError}
+                    onOverrideClick={() => setIsOverrideOpen(true)}
+                  />
+                }
               />
 
               <div className="space-y-4 animate-fade-in" style={{ animationDelay: '100ms' }}>
@@ -138,6 +179,14 @@ export default function PortfolioInquiry() {
             </main>
           </div>
         </Container>
+        {esg && (
+          <EsgOverrideDialog
+            isOpen={isOverrideOpen}
+            esg={esg}
+            onClose={closeOverride}
+            onSaved={handleOverrideSaved}
+          />
+        )}
       </div>
     );
   }

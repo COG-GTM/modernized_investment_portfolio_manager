@@ -8,6 +8,7 @@ from decimal import Decimal
 from sqlalchemy.orm import sessionmaker
 from models.database import engine, Base, Portfolio, Position
 from models.transactions import Transaction
+from models.esg import PortfolioEsgMetric
 from datetime import time
 
 Base.metadata.create_all(bind=engine)
@@ -144,6 +145,37 @@ def seed_portfolio_data():
     finally:
         session.close()
 
+def seed_esg_metric():
+    """Seed a current-month WACI row for PF-12345 (worked example from the ESG spec) until the RP-47 procedure populates it."""
+    session = SessionLocal()
+    as_of_month = date.today().strftime("%Y-%m")
+
+    try:
+        if session.get(PortfolioEsgMetric, ("PF-12345", as_of_month)):
+            print(f"ESG metric for {as_of_month} already exists. Skipping.")
+            return
+
+        session.add(PortfolioEsgMetric(
+            port_id="PF-12345",
+            as_of_month=as_of_month,
+            computed_value=Decimal("64.137484"),
+            coverage_pct=Decimal("91.4804"),
+            total_market_value=Decimal("125498.50"),
+            covered_market_value=Decimal("114806.50"),
+            positions_total=4,
+            positions_covered=3,
+            procedure_version="SEED",
+            computed_at=datetime.now().replace(microsecond=0),
+        ))
+        session.commit()
+        print(f"Seeded ESG metric for PF-12345 ({as_of_month})")
+    except Exception as e:
+        session.rollback()
+        print(f"Error seeding ESG metric: {e}")
+        raise
+    finally:
+        session.close()
+
 def verify_seeded_data():
     """Verify that the data was seeded correctly"""
     session = SessionLocal()
@@ -176,4 +208,5 @@ def verify_seeded_data():
 if __name__ == "__main__":
     print("Seeding database with sample portfolio data...")
     seed_portfolio_data()
+    seed_esg_metric()
     verify_seeded_data()
