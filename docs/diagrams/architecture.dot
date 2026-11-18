@@ -1,0 +1,52 @@
+// Architecture of modernized_investment_portfolio_manager (main).
+// Render with docs/diagrams/render.sh.
+digraph architecture {
+  graph [rankdir=TB, fontname="DejaVu Sans", fontsize=18, nodesep=0.5, ranksep=0.7, pad=0.3,
+         label="modernized_investment_portfolio_manager: what runs on main", labelloc=t];
+  node  [shape=box, style="rounded,filled", fontname="DejaVu Sans", fontsize=15, fillcolor=white, color="#555555"];
+  edge  [fontname="DejaVu Sans", fontsize=13, color="#444444"];
+
+  user [label="Browser user\n(keyboard: 1 / 2, Enter, Esc)", shape=oval, fillcolor="#f3f3f3"];
+
+  subgraph cluster_fe {
+    label="Frontend: React 16 + Vite 7 SPA (src/, :3000)"; style="rounded,filled"; fillcolor="#e8f1fb"; color="#4a7ab5";
+    router [label="App.tsx\nreact-router v5 + useGlobalNavigation"];
+    menu   [label="MainMenu  /\n(MENU_OPTIONS)"];
+    inq    [label="PortfolioInquiry\n/portfolio-inquiry\nzod: 10 digits"];
+    hist   [label="TransactionHistory\n/transaction-history?account="];
+    comps  [label="components/\nPortfolioSummary, PositionCard,\nAccountInput, ui/*"];
+    api    [label="services/api.ts\nfetchPortfolio, fetchTransactions\nhttp://localhost:8000/api (hard-coded)"];
+    {rank=same; menu; inq; hist}
+  }
+
+  subgraph cluster_be {
+    label="Backend: FastAPI (backend/, uvicorn :8000)"; style="rounded,filled"; fillcolor="#eaf6ea"; color="#4a9a4a";
+    main   [label="app/main.py\nCORS allow *  ·  GET /healthz"];
+    rport  [label="routers/portfolio.py\nGET /api/portfolio/{acct}\nGET /api/transactions/{acct}"];
+    racc   [label="routers/accounts.py\nGET /api/accounts/{acct}/validate"];
+    val    [label="validation/portfolio.py\nvalidate_account_number → always True"];
+    mock   [label="generate_mock_portfolio()\nfixed 4 holdings (AAPL, MSFT, GOOGL, TSLA)", fillcolor="#fff6d9"];
+    schem  [label="models/portfolio.py\nPydantic response models"];
+    {rank=same; rport; racc}
+  }
+
+  subgraph cluster_data {
+    label="Data layer (not called by the API)"; style="rounded,filled,dashed"; fillcolor="#f7eef8"; color="#9a5aa0";
+    orm    [label="models/ (SQLAlchemy 2)\nPortfolio, Position,\nTransaction, History"];
+    svc    [label="services/portfolio_service.py\nPortfolioService.process_transaction"];
+    alem   [label="Alembic migrations\n690c72633831 → 40a256798f94"];
+    scripts[label="setup_database.sh\nseed_database.py · verify_persistence.py\ntest_models.py"];
+    db     [label="SQLite\nbackend/portfolio.db", shape=cylinder, fillcolor="#fde8e8"];
+  }
+
+  user -> router;
+  router -> menu; router -> inq; router -> hist;
+  inq -> comps [style=dashed, arrowhead=none];
+  inq -> api; hist -> api;
+  api -> main [label="  fetch JSON", penwidth=2];
+  main -> rport; main -> racc;
+  rport -> mock; rport -> schem; racc -> val; racc -> schem;
+  rport -> val [style=dotted, label="  call commented out"];
+  svc -> orm; orm -> db; alem -> db; scripts -> alem; scripts -> orm;
+  mock -> orm [style=invis];
+}
