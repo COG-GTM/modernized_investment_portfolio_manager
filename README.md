@@ -28,7 +28,7 @@ See [docs/architecture.md](docs/architecture.md) for how the frontend, API and d
 ## Setup Instructions
 
 ### Prerequisites
-- Node.js 20+ and npm
+- Node.js 20.19+ or 22.12+ and npm (required by Vite 7)
 - Python 3.12+ and [Poetry](https://python-poetry.org/) (or pip)
 - Git
 
